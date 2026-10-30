@@ -1,45 +1,18 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import {
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  rmSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
-import { createRequire } from "node:module";
-import ts from "typescript";
+import { compileModules } from "./helpers/compile-modules.mjs";
 
-// Compile only pure modules into an isolated directory; no browser or test framework is required.
-const compiled = mkdtempSync(join(tmpdir(), "logscope-tests-"));
-after(() => rmSync(compiled, { recursive: true, force: true }));
-const modules = [
-  "utils/format",
-  "utils/log",
-  "utils/json",
-  "utils/har",
-  ...["en", "bn", "te", "ta", "kn"].map((locale) => `i18n/locales/${locale}`),
-];
-for (const module of modules) {
-  const source = readFileSync(
-    new URL(`../src/${module}.ts`, import.meta.url),
-    "utf8",
-  );
-  const output = join(compiled, `${module}.js`);
-  mkdirSync(dirname(output), { recursive: true });
-  writeFileSync(
-    output,
-    ts.transpileModule(source, {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2020,
-      },
-    }).outputText,
-  );
-}
-const require = createRequire(join(compiled, "test.cjs"));
+const { require, cleanup } = compileModules([
+  "utils/format.ts",
+  "utils/log.ts",
+  "utils/json.ts",
+  "utils/harValidation.ts",
+  "utils/har.ts",
+  ...["en", "bn", "te", "ta", "kn"].map(
+    (locale) => `i18n/locales/${locale}.ts`,
+  ),
+]);
+after(cleanup);
 const json = require("./utils/json.js");
 const log = require("./utils/log.js");
 const har = require("./utils/har.js");
@@ -158,4 +131,159 @@ test("all five locale files contain the same nonempty translation keys, includin
     );
   }
   assert.equal(require("./i18n/locales/kn.js").default.Language, "ಭಾಷೆ");
+});
+
+test("JSON formatting preserves exact numeric tokens and duplicate keys", () => {
+  const compact =
+    '{"id":9007199254740993,"large":123456789012345678901234567890,"amount":1e400,"negative":-1e400,"tiny":1e-400,"decimal":0.123456789012345678901,"zero":-0,"exponent":1E+003,"id":9007199254740995}';
+  const formatted = json.formatJsonText(compact);
+  assert.equal(json.formatJsonText(formatted, true), compact);
+  assert.equal(json.formatJsonText(` \n ${compact} \t `, true), compact);
+  for (const number of [
+    "9007199254740993",
+    "9007199254740995",
+    "1e400",
+    "-1e400",
+    "1e-400",
+    "0.123456789012345678901",
+    "-0",
+    "1E+003",
+  ])
+    assert.ok(formatted.includes(number), number);
+  assert.ok(!formatted.includes("null"));
+});
+
+test("JSON token formatting handles nested empty containers and escaped string contents", () => {
+  const value = {
+    text: ' [ ] { } : , true null 1e400 " \\ \n বাংলা ಕನ್ನಡ ',
+    array: [[], {}, [true, false, null]],
+    object: {},
+  };
+  const compact = JSON.stringify(value);
+  const formatted = json.formatJsonText(compact);
+  assert.equal(json.formatJsonText(formatted, true), compact);
+  assert.deepEqual(JSON.parse(formatted), value);
+  assert.equal(json.formatJsonText("{}"), "{}");
+  assert.equal(json.formatJsonText("[]"), "[]");
+  for (const invalid of [
+    "01",
+    "NaN",
+    '{"a":1,}',
+    "[1,]",
+    '{"text":"bad\nline"}',
+  ])
+    assert.throws(() => json.formatJsonText(invalid), SyntaxError);
+});
+
+test("HAR JSON body previews preserve numeric precision", () => {
+  const body = '{"id":9007199254740993,"amount":1e400}';
+  assert.equal(
+    json.formatJsonText(har.prettifyHarBody(body, "application/json"), true),
+    body,
+  );
+});
+
+test("HAR validation rejects malformed nested fields instead of dropping requests", async () => {
+  const mutations = [
+    (item) => {
+      item.request.headers = [null];
+    },
+    (item) => {
+      item.request.headers = { length: 1 };
+    },
+    (item) => {
+      item.request.headers = [{ name: "Accept", value: false }];
+    },
+    (item) => {
+      item.request.queryString = "page=1";
+    },
+    (item) => {
+      item.request.queryString = [{ name: "page", value: {} }];
+    },
+    (item) => {
+      item.request.postData = null;
+    },
+    (item) => {
+      item.request.postData = { text: 123 };
+    },
+    (item) => {
+      item.request.postData = { params: [null] };
+    },
+    (item) => {
+      item.response.headers = [{ name: 42, value: "abc" }];
+    },
+    (item) => {
+      item.response.content = null;
+    },
+    (item) => {
+      item.response.content.text = 123;
+    },
+    (item) => {
+      item.response.content.mimeType = {};
+    },
+    (item) => {
+      item.response.content.size = "12";
+    },
+    (item) => {
+      item.response.statusText = {};
+    },
+    (item) => {
+      item.response.httpVersion = {};
+    },
+    (item) => {
+      item.time = "100";
+    },
+    (item) => {
+      item.timings = null;
+    },
+    (item) => {
+      item.timings = { wait: "100" };
+    },
+    (item) => {
+      item.serverIPAddress = {};
+    },
+    (item) => {
+      item.cache = [];
+    },
+  ];
+  for (const [index, mutate] of mutations.entries()) {
+    const broken = entry("https://example.test/broken");
+    mutate(broken);
+    await assert.rejects(
+      har.readHarCapture({
+        name: "broken.har",
+        text: async () =>
+          JSON.stringify({
+            log: { entries: [entry("https://example.test/valid"), broken] },
+          }),
+      }),
+      /valid HAR/,
+      `mutation ${index}`,
+    );
+  }
+});
+
+test("HAR validation accepts optional fields and unknown timing values safely", async () => {
+  const item = entry("https://example.test/upload");
+  item.request.headersSize = -1;
+  item.request.queryString = [{ name: "page", value: "1" }];
+  item.request.postData = {
+    mimeType: "multipart/form-data",
+    params: [{ name: "file", fileName: "sample.txt" }],
+  };
+  item.response.bodySize = -1;
+  item.response.httpVersion = "HTTP/2";
+  item.response.content.encoding = "base64";
+  item.timings = { blocked: -1, dns: -1, wait: 10 };
+  item.cache = {};
+  const capture = await har.readHarCapture({
+    name: "optional.har",
+    text: async () => JSON.stringify({ log: { entries: [item] } }),
+  });
+  assert.deepEqual(capture.entries, [item]);
+  assert.equal(
+    har.compareHarCaptures(capture.entries, structuredClone(capture.entries))[0]
+      .kind,
+    "unchanged",
+  );
 });

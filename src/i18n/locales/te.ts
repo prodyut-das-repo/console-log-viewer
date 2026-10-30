@@ -203,5 +203,10 @@ const messages: Messages = {
   Unknown: "తెలియదు",
   "Showing {visible} of {total} lines":
     "{total} పంక్తుల్లో {visible} చూపిస్తోంది",
+  "Unable to open this tool.": "ఈ సాధనాన్ని తెరవలేకపోయాం.",
+  "Try again or switch to another tool.":
+    "మళ్లీ ప్రయత్నించండి లేదా మరో సాధనాన్ని ఉపయోగించండి.",
+  "Try again": "మళ్లీ ప్రయత్నించండి",
+  "Loading tool...": "సాధనం లోడ్ అవుతోంది...",
 };
 export default messages;

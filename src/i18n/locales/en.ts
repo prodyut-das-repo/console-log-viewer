@@ -196,5 +196,10 @@ const messages = {
   "Updated headers": "Updated headers",
   Unknown: "Unknown",
   "Showing {visible} of {total} lines": "Showing {visible} of {total} lines",
+  "Unable to open this tool.": "Unable to open this tool.",
+  "Try again or switch to another tool.":
+    "Try again or switch to another tool.",
+  "Try again": "Try again",
+  "Loading tool...": "Loading tool...",
 } as const;
 export default messages;

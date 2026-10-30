@@ -1,32 +1,7 @@
 import type { HarEntry, HarDiff, HarDiffDetail, HarHeader } from "../types";
 import { formatSize, formatDuration } from "./format";
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-export function normalizeHarEntries(value: unknown): HarEntry[] {
-  if (!Array.isArray(value)) return [];
-
-  return value.flatMap((item) => {
-    if (
-      !isRecord(item) ||
-      !isRecord(item.request) ||
-      !isRecord(item.response)
-    ) {
-      return [];
-    }
-    const request = item.request;
-    const response = item.response;
-    if (
-      typeof request.method !== "string" ||
-      typeof request.url !== "string" ||
-      typeof response.status !== "number"
-    ) {
-      return [];
-    }
-    return [item as unknown as HarEntry];
-  });
-}
+import { formatJsonText } from "./json";
+import { isRecord, normalizeHarEntries } from "./harValidation";
 
 export function harRequestKey(entry: HarEntry): string {
   try {
@@ -194,7 +169,7 @@ export function prettifyHarBody(text: string, mimeType = ""): string {
   const looksLikeJson = mimeType.includes("json") || /^[\s]*[\[{]/.test(text);
   if (!looksLikeJson) return text;
   try {
-    return JSON.stringify(JSON.parse(text), null, 2);
+    return formatJsonText(text);
   } catch {
     return text;
   }

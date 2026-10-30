@@ -205,5 +205,10 @@ const messages: Messages = {
   Unknown: "தெரியாது",
   "Showing {visible} of {total} lines":
     "{total} வரிகளில் {visible} காட்டப்படுகிறது",
+  "Unable to open this tool.": "இந்தக் கருவியைத் திறக்க முடியவில்லை.",
+  "Try again or switch to another tool.":
+    "மீண்டும் முயற்சிக்கவும் அல்லது வேறு கருவியைப் பயன்படுத்தவும்.",
+  "Try again": "மீண்டும் முயற்சிக்கவும்",
+  "Loading tool...": "கருவி ஏற்றப்படுகிறது...",
 };
 export default messages;

@@ -1,11 +1,4 @@
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties } from "react";
 import type { HarCapture, ToolTab } from "./types";
 import { useTranslation } from "./i18n/LanguageProvider";
@@ -17,9 +10,10 @@ import AppHeader from "./components/layout/AppHeader";
 import ToolTabs from "./components/layout/ToolTabs";
 import ToolHeading from "./components/layout/ToolHeading";
 import ConsoleViewer from "./features/console/ConsoleViewer";
-const JsonFormatter = lazy(() => import("./features/json/JsonFormatter"));
-const JsonEscape = lazy(() => import("./features/json/JsonEscape"));
-const HarInspector = lazy(() => import("./features/har/HarInspector"));
+import RetryableTool from "./components/common/RetryableTool";
+const loadJsonFormatter = () => import("./features/json/JsonFormatter");
+const loadJsonEscape = () => import("./features/json/JsonEscape");
+const loadHarInspector = () => import("./features/har/HarInspector");
 export default function App() {
   const { t } = useTranslation();
   const { theme, fontSize } = usePreferences();
@@ -119,45 +113,51 @@ export default function App() {
               active={activeTool === "console"}
             />
           </section>
-          <Suspense fallback={null}>
-            {visited.has("formatter") && (
-              <section
-                id="panel-formatter"
-                className="tool-panel"
-                role="tabpanel"
-                aria-labelledby="tab-formatter"
-                hidden={activeTool !== "formatter"}
-              >
-                <JsonFormatter />
-              </section>
-            )}
-            {visited.has("escape") && (
-              <section
-                id="panel-escape"
-                className="tool-panel"
-                role="tabpanel"
-                aria-labelledby="tab-escape"
-                hidden={activeTool !== "escape"}
-              >
-                <JsonEscape />
-              </section>
-            )}
-            {visited.has("har") && (
-              <section
-                id="panel-har"
-                className="tool-panel har-panel"
-                role="tabpanel"
-                aria-labelledby="tab-har"
-                hidden={activeTool !== "har"}
-              >
-                <HarInspector
-                  key={capture?.id ?? "empty"}
-                  capture={capture}
-                  onOpen={openHarPicker}
-                />
-              </section>
-            )}
-          </Suspense>
+          {visited.has("formatter") && (
+            <section
+              id="panel-formatter"
+              className="tool-panel"
+              role="tabpanel"
+              aria-labelledby="tab-formatter"
+              hidden={activeTool !== "formatter"}
+            >
+              <RetryableTool load={loadJsonFormatter}>
+                {(JsonFormatter) => <JsonFormatter />}
+              </RetryableTool>
+            </section>
+          )}
+          {visited.has("escape") && (
+            <section
+              id="panel-escape"
+              className="tool-panel"
+              role="tabpanel"
+              aria-labelledby="tab-escape"
+              hidden={activeTool !== "escape"}
+            >
+              <RetryableTool load={loadJsonEscape}>
+                {(JsonEscape) => <JsonEscape />}
+              </RetryableTool>
+            </section>
+          )}
+          {visited.has("har") && (
+            <section
+              id="panel-har"
+              className="tool-panel har-panel"
+              role="tabpanel"
+              aria-labelledby="tab-har"
+              hidden={activeTool !== "har"}
+            >
+              <RetryableTool load={loadHarInspector}>
+                {(HarInspector) => (
+                  <HarInspector
+                    key={capture?.id ?? "empty"}
+                    capture={capture}
+                    onOpen={openHarPicker}
+                  />
+                )}
+              </RetryableTool>
+            </section>
+          )}
         </div>
       </main>
       <input

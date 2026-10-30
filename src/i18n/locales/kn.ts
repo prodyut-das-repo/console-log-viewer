@@ -202,5 +202,10 @@ const messages: Messages = {
   Unknown: "ತಿಳಿದಿಲ್ಲ",
   "Showing {visible} of {total} lines":
     "{total} ಸಾಲುಗಳಲ್ಲಿ {visible} ತೋರಿಸಲಾಗುತ್ತಿದೆ",
+  "Unable to open this tool.": "ಈ ಸಾಧನವನ್ನು ತೆರೆಯಲಾಗಲಿಲ್ಲ.",
+  "Try again or switch to another tool.":
+    "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಮತ್ತೊಂದು ಸಾಧನವನ್ನು ಬಳಸಿ.",
+  "Try again": "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ",
+  "Loading tool...": "ಸಾಧನ ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
 };
 export default messages;

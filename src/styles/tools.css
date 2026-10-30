@@ -167,6 +167,17 @@
 .utility-status.error {
   color: #d15f56;
 }
+.tool-load-error p {
+  color: #687282;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.tool-load-error p:first-child {
+  font-weight: 600;
+}
+[data-theme="dark"] .tool-load-error p {
+  color: #b4bfce;
+}
 [data-theme="dark"] .tool-tabs {
   border-color: #283140;
   background: #171e2a;

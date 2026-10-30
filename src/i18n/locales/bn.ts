@@ -196,5 +196,10 @@ const messages: Messages = {
   Unknown: "অজানা",
   "Showing {visible} of {total} lines":
     "{total} লাইনের মধ্যে {visible} দেখানো হচ্ছে",
+  "Unable to open this tool.": "এই টুলটি খোলা যায়নি।",
+  "Try again or switch to another tool.":
+    "আবার চেষ্টা করুন বা অন্য টুল ব্যবহার করুন।",
+  "Try again": "আবার চেষ্টা করুন",
+  "Loading tool...": "টুল লোড হচ্ছে...",
 };
 export default messages;
