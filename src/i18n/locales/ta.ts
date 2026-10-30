@@ -2,6 +2,7 @@ import type { Messages } from "../types";
 const messages: Messages = {
   "LOG FILES": "பதிவு கோப்புகள்",
   "Add a log file": "பதிவு கோப்பைச் சேர்க்கவும்",
+  "Remove {name}": "{name} நீக்கவும்",
   "Files stay on your device": "கோப்புகள் உங்கள் சாதனத்திலேயே இருக்கும்",
   "HAR inspector": "HAR ஆய்வி",
   "Log viewer": "பதிவு பார்வையகம்",

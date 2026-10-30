@@ -117,19 +117,47 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.filelink.active {
-  color: #3d5fc7;
-  background: #f1f4ff;
-  font-weight: 600;
+.file-item {
+  display: flex;
+  flex: 0 0 37px;
+  align-items: center;
+  min-width: 0;
+  border-radius: 6px;
 }
-.filelink.active > span {
+.file-item > .filelink {
+  flex: 1;
   min-width: 0;
 }
-.filelink.active > i:last-child {
-  height: 5px;
-  width: 5px;
-  border-radius: 50%;
-  background: #5679e5;
+.filelink > svg {
+  flex-shrink: 0;
+}
+.file-item.active {
+  color: #3d5fc7;
+  background: #f1f4ff;
+}
+.file-item.active > .filelink {
+  color: inherit;
+  font-weight: 600;
+}
+.file-remove {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  height: 28px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #9298a2;
+}
+.file-remove:hover {
+  background: #fce9e9;
+  color: #b73737;
+}
+.filelink:focus-visible,
+.file-remove:focus-visible {
+  outline: 2px solid #5679e5;
+  outline-offset: -2px;
 }
 .bottom {
   margin-top: auto;

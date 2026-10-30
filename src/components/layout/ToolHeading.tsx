@@ -5,9 +5,11 @@ import { tools } from "./tools";
 export default function ToolHeading({
   activeTool,
   onOpen,
+  hasLogFiles,
 }: {
   activeTool: ToolTab;
   onOpen: () => void;
+  hasLogFiles: boolean;
 }) {
   const { t } = useTranslation();
   const tool = tools.find((tool) => tool.id === activeTool)!;
@@ -20,7 +22,7 @@ export default function ToolHeading({
         <h1>{t(tool.title)}</h1>
         <p>{t(tool.description)}</p>
       </div>
-      {(activeTool === "console" || activeTool === "har") && (
+      {((activeTool === "console" && hasLogFiles) || activeTool === "har") && (
         <button className="upload" onClick={onOpen} type="button">
           <Icon name="upload" />
           {t(activeTool === "har" ? "Open HAR file" : "Upload log file")}

@@ -10,6 +10,7 @@ import AppHeader from "./components/layout/AppHeader";
 import ToolTabs from "./components/layout/ToolTabs";
 import ToolHeading from "./components/layout/ToolHeading";
 import ConsoleViewer from "./features/console/ConsoleViewer";
+import ConsoleEmptyState from "./features/console/ConsoleEmptyState";
 import RetryableTool from "./components/common/RetryableTool";
 const loadJsonFormatter = () => import("./features/json/JsonFormatter");
 const loadJsonEscape = () => import("./features/json/JsonEscape");
@@ -18,14 +19,24 @@ export default function App() {
   const { t } = useTranslation();
   const { theme, fontSize } = usePreferences();
   const { notify } = useClipboard();
-  const { files, activeFile, activeId, setActiveId, updateFile, openFiles } =
-    useLogFiles();
+  const {
+    files,
+    activeFile,
+    activeId,
+    setActiveId,
+    updateFile,
+    openFiles,
+    removeFile,
+    replaceFile,
+  } = useLogFiles();
   const [activeTool, setActiveTool] = useState<ToolTab>("console");
   const [visited, setVisited] = useState<Set<ToolTab>>(
     () => new Set(["console"]),
   );
   const [capture, setCapture] = useState<HarCapture | null>(null);
   const filePicker = useRef<HTMLInputElement>(null);
+  const replacementPicker = useRef<HTMLInputElement>(null);
+  const replacementTarget = useRef<string | null>(null);
   const harPicker = useRef<HTMLInputElement>(null);
   const openLogPicker = useCallback(() => filePicker.current?.click(), []);
   const openHarPicker = useCallback(() => harPicker.current?.click(), []);
@@ -50,8 +61,11 @@ export default function App() {
   );
   const openPicker = useCallback(() => {
     if (activeTool === "har") harPicker.current?.click();
-    else filePicker.current?.click();
-  }, [activeTool]);
+    else if (activeTool === "console" && activeId) {
+      replacementTarget.current = activeId;
+      replacementPicker.current?.click();
+    } else openLogPicker();
+  }, [activeTool, activeId, openLogPicker]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o") {
@@ -85,7 +99,7 @@ export default function App() {
   const title =
     activeTool === "har"
       ? (capture?.name ?? t("HAR inspector"))
-      : activeFile.name;
+      : (activeFile?.name ?? t("Log viewer"));
   return (
     <div className="shell" data-theme={theme} style={style}>
       <Sidebar
@@ -93,12 +107,17 @@ export default function App() {
         activeLogId={activeId}
         onSelect={selectFile}
         onOpen={openLogPicker}
+        onRemove={removeFile}
       />
       <main>
         <AppHeader title={title} />
         <ToolTabs activeTool={activeTool} onSelect={selectTool} />
         <div className="content">
-          <ToolHeading activeTool={activeTool} onOpen={openPicker} />
+          <ToolHeading
+            activeTool={activeTool}
+            onOpen={openPicker}
+            hasLogFiles={files.length > 0}
+          />
           <section
             id="panel-console"
             className="tool-panel"
@@ -106,12 +125,19 @@ export default function App() {
             aria-labelledby="tab-console"
             hidden={activeTool !== "console"}
           >
-            <ConsoleViewer
-              file={activeFile}
-              onUpdate={updateFile}
-              onOpenFiles={openLogFiles}
-              active={activeTool === "console"}
-            />
+            {activeFile ? (
+              <ConsoleViewer
+                file={activeFile}
+                onUpdate={updateFile}
+                onOpenFiles={openLogFiles}
+                active={activeTool === "console"}
+              />
+            ) : (
+              <ConsoleEmptyState
+                onOpen={openLogPicker}
+                onOpenFiles={openLogFiles}
+              />
+            )}
           </section>
           {visited.has("formatter") && (
             <section
@@ -169,6 +195,18 @@ export default function App() {
           const files = Array.from(event.currentTarget.files ?? []);
           event.currentTarget.value = "";
           void openLogFiles(files);
+        }}
+      />
+      <input
+        ref={replacementPicker}
+        type="file"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          const id = replacementTarget.current;
+          event.currentTarget.value = "";
+          replacementTarget.current = null;
+          if (file && id) void replaceFile(id, file);
         }}
       />
       <input

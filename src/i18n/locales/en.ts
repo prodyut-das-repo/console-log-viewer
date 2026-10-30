@@ -1,6 +1,7 @@
 const messages = {
   "LOG FILES": "LOG FILES",
   "Add a log file": "Add a log file",
+  "Remove {name}": "Remove {name}",
   "Files stay on your device": "Files stay on your device",
   "HAR inspector": "HAR inspector",
   "Log viewer": "Log viewer",

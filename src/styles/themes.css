@@ -9,15 +9,23 @@
 [data-theme="dark"] .sidecap {
   color: #8691a2;
 }
-[data-theme="dark"] .filelink {
+[data-theme="dark"] .filelink,
+[data-theme="dark"] .file-remove {
   color: #a0aabc;
 }
-[data-theme="dark"] .filelink.active {
+[data-theme="dark"] .file-item.active {
   background: #232f49;
   color: #a9bcff;
 }
-[data-theme="dark"] .filelink.active svg {
+[data-theme="dark"] .file-item.active > .filelink {
+  color: inherit;
+}
+[data-theme="dark"] .file-item.active .filelink svg {
   color: #95a9e7;
+}
+[data-theme="dark"] .file-remove:hover {
+  background: #442b35;
+  color: #ff9b9b;
 }
 [data-theme="dark"] .local {
   background: #1c2532;
