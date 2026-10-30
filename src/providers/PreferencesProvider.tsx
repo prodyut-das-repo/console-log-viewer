@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { Theme } from "../types";
 import { useStoredState } from "../hooks/useStoredState";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 const validateTheme = (value: string): Theme =>
   value === "light" ? "light" : "dark";
 const validateFontSize = (value: string) => {
@@ -17,6 +18,7 @@ interface Preferences {
 }
 const PreferencesContext = createContext<Preferences | null>(null);
 export function PreferencesProvider({ children }: { children: ReactNode }) {
+  const defaultFontSize = useMediaQuery("(max-width: 760px)") ? 16 : 10;
   const [theme, setTheme] = useStoredState<Theme>(
     "logscope-theme",
     "dark",
@@ -24,7 +26,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   );
   const [fontSize, setFontSize] = useStoredState(
     "logscope-log-font-size",
-    10 as number,
+    defaultFontSize as number,
     validateFontSize,
   );
   const toggleTheme = useCallback(
@@ -36,7 +38,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setFontSize((size) => Math.min(20, Math.max(8, size + delta))),
     [setFontSize],
   );
-  const resetFontSize = useCallback(() => setFontSize(10), [setFontSize]);
+  const resetFontSize = useCallback(
+    () => setFontSize(defaultFontSize),
+    [setFontSize, defaultFontSize],
+  );
   const value = useMemo(
     () => ({ theme, fontSize, toggleTheme, changeFontSize, resetFontSize }),
     [theme, fontSize, toggleTheme, changeFontSize, resetFontSize],

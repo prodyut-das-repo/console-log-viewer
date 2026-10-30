@@ -1,6 +1,11 @@
 import type { Messages } from "../types";
 const messages: Messages = {
+  Files: "ಕಡತಗಳು",
+  "Open file list": "ಕಡತಗಳ ಪಟ್ಟಿ ತೆರೆಯಿರಿ",
+  "Close file list": "ಕಡತಗಳ ಪಟ್ಟಿ ಮುಚ್ಚಿ",
   "LOG FILES": "ಲಾಗ್ ಕಡತಗಳು",
+  "HAR FILES": "HAR ಕಡತಗಳು",
+  "Add a HAR file": "HAR ಕಡತ ಸೇರಿಸಿ",
   "Add a log file": "ಲಾಗ್ ಕಡತ ಸೇರಿಸಿ",
   "Remove {name}": "{name} ತೆಗೆದುಹಾಕಿ",
   "Files stay on your device": "ಕಡತಗಳು ನಿಮ್ಮ ಸಾಧನದಲ್ಲೇ ಇರುತ್ತವೆ",

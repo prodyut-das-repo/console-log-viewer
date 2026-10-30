@@ -787,6 +787,8 @@
   font-size: 10px;
 }
 .har-diff-field > b {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: #7d8897;
   font-weight: 600;
 }
@@ -897,5 +899,155 @@
   }
   [data-theme="dark"] .har-diff-list {
     border-bottom-color: #2a3443;
+  }
+}
+
+@media (max-width: 760px) {
+  .har-empty {
+    min-height: 340px;
+    padding: 28px 16px;
+  }
+  .har-empty p,
+  .har-empty small {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .har-empty .primary-action {
+    min-height: 44px;
+    font-size: 14px;
+  }
+  .har-summary article {
+    padding: 12px;
+    min-height: 80px;
+  }
+  .har-summary article label,
+  .har-file-label span {
+    font-size: 12px;
+  }
+  .har-summary article strong {
+    font-size: 19px;
+  }
+  .har-file-label b {
+    font-size: 13px;
+  }
+  .har-search,
+  .har-compare-filter {
+    height: 44px;
+  }
+  .har-search input,
+  .har-compare-filter {
+    font-size: 16px;
+  }
+  .har-request-list,
+  .har-diff-list {
+    max-height: 35dvh;
+  }
+  .har-request-meta {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    font-size: 12px;
+  }
+  .har-request-meta span:first-child {
+    flex: 1 0 100%;
+    overflow-wrap: anywhere;
+  }
+  .har-endpoint,
+  .har-detail-title h2,
+  .har-diff-endpoint,
+  .har-body {
+    font-size: 14px;
+  }
+  .har-method,
+  .har-status-code,
+  .har-status-pill {
+    font-size: 12px;
+  }
+  .har-detail,
+  .har-detail-title > div {
+    min-width: 0;
+  }
+  .har-detail-tabs {
+    height: auto;
+    min-height: 46px;
+    padding: 0 8px;
+    overflow-x: auto;
+  }
+  .har-detail-tabs button {
+    flex-shrink: 0;
+    min-height: 44px;
+    font-size: 12px;
+  }
+  .har-detail-content {
+    overflow: visible;
+    padding: 14px 12px;
+  }
+  .har-detail-content h3 {
+    flex-wrap: wrap;
+    font-size: 14px;
+  }
+  .har-detail-content h3 span {
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+  .har-kv {
+    grid-template-columns: minmax(80px, 30%) minmax(0, 1fr);
+    gap: 0 10px;
+    font-size: 12px;
+  }
+  .har-kv dt {
+    overflow-wrap: anywhere;
+  }
+  .har-headers > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    font-size: 12px;
+  }
+  .har-headers b,
+  .har-headers span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .har-headers p,
+  .har-muted,
+  .har-timing,
+  .har-timing b {
+    font-size: 12px;
+  }
+  .har-compare-header,
+  .har-compare-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .har-mode-switch button,
+  .har-compare-button {
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .har-mode-switch button {
+    flex: 1;
+  }
+  .har-compare-hint {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .har-diff-kind,
+  .har-diff-row small,
+  .har-diff-captures b,
+  .har-diff-captures span,
+  .har-diff-legend {
+    font-size: 12px;
+  }
+  .har-diff-captures span {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .har-diff-field {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .har-diff-field > b {
+    grid-column: 1 / -1;
   }
 }

@@ -7,7 +7,9 @@ import { compileModules } from "./helpers/compile-modules.mjs";
 const { require, cleanup } = compileModules([
   "App.tsx",
   "hooks/useLogFiles.ts",
+  "hooks/useHarFiles.ts",
   "hooks/useStoredState.ts",
+  "hooks/useMediaQuery.ts",
   "providers/ClipboardProvider.tsx",
   "providers/PreferencesProvider.tsx",
   "i18n/LanguageProvider.tsx",
@@ -19,7 +21,9 @@ const { require, cleanup } = compileModules([
   "components/common/ToolLoadError.tsx",
   "components/common/StatusMessage.tsx",
   "components/layout/AppHeader.tsx",
+  "components/layout/FileNavigation.tsx",
   "components/layout/Sidebar.tsx",
+  "components/layout/SidebarFileList.tsx",
   "components/layout/ToolTabs.tsx",
   "components/layout/ToolHeading.tsx",
   "components/layout/tools.ts",
@@ -245,10 +249,10 @@ test("the sidebar appends, the heading replaces, and each file can be removed in
           ? {
               click: () =>
                 openedPickers.push(
-                  element.props.multiple
-                    ? "append"
-                    : element.props.accept
-                      ? "har"
+                  element.props.accept
+                    ? "har"
+                    : element.props.multiple
+                      ? "append"
                       : "replace",
                 ),
             }
@@ -262,7 +266,9 @@ test("the sidebar appends, the heading replaces, and each file can be removed in
   const heading = () => renderer.root.findByType(ToolHeading);
   const logNames = () => sidebar().props.logFiles.map((file) => file.name);
   const inputs = renderer.root.findAllByProps({ type: "file" });
-  const appendInput = inputs.find((input) => input.props.multiple);
+  const appendInput = inputs.find(
+    (input) => input.props.multiple && !input.props.accept,
+  );
   const replaceInput = inputs.find(
     (input) => !input.props.multiple && !input.props.accept,
   );
@@ -285,7 +291,11 @@ test("the sidebar appends, the heading replaces, and each file can be removed in
   assert.equal(openedPickers.at(-1), "append");
   await upload(appendInput, "first.log");
   await act(async () =>
-    sidebar().findAllByType("button").at(-1).props.onClick(),
+    sidebar()
+      .findByProps({ "aria-label": "LOG FILES" })
+      .findAllByType("button")
+      .at(-1)
+      .props.onClick(),
   );
   assert.equal(openedPickers.at(-1), "append");
   await upload(appendInput, "second.log");

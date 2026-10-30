@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChangeEvent, CSSProperties } from "react";
-import type { HarCapture, ToolTab } from "./types";
+import type { CSSProperties } from "react";
+import type { ToolTab } from "./types";
 import { useTranslation } from "./i18n/LanguageProvider";
 import { usePreferences } from "./providers/PreferencesProvider";
-import { useClipboard } from "./providers/ClipboardProvider";
 import { useLogFiles } from "./hooks/useLogFiles";
-import Sidebar from "./components/layout/Sidebar";
+import { useHarFiles } from "./hooks/useHarFiles";
+import FileNavigation from "./components/layout/FileNavigation";
 import AppHeader from "./components/layout/AppHeader";
 import ToolTabs from "./components/layout/ToolTabs";
 import ToolHeading from "./components/layout/ToolHeading";
@@ -14,11 +14,10 @@ import ConsoleEmptyState from "./features/console/ConsoleEmptyState";
 import RetryableTool from "./components/common/RetryableTool";
 const loadJsonFormatter = () => import("./features/json/JsonFormatter");
 const loadJsonEscape = () => import("./features/json/JsonEscape");
-const loadHarInspector = () => import("./features/har/HarInspector");
+const loadHarWorkspace = () => import("./features/har/HarWorkspace");
 export default function App() {
   const { t } = useTranslation();
   const { theme, fontSize } = usePreferences();
-  const { notify } = useClipboard();
   const {
     files,
     activeFile,
@@ -30,10 +29,22 @@ export default function App() {
     replaceFile,
   } = useLogFiles();
   const [activeTool, setActiveTool] = useState<ToolTab>("console");
+  const [fileNavigationOpen, setFileNavigationOpen] = useState(false);
+  const closeFileNavigation = useCallback(
+    () => setFileNavigationOpen(false),
+    [],
+  );
   const [visited, setVisited] = useState<Set<ToolTab>>(
     () => new Set(["console"]),
   );
-  const [capture, setCapture] = useState<HarCapture | null>(null);
+  const {
+    files: harFiles,
+    activeFile: capture,
+    activeId: activeHarId,
+    selectFile: selectHar,
+    removeFile: removeHar,
+    openFiles: openHarFiles,
+  } = useHarFiles();
   const filePicker = useRef<HTMLInputElement>(null);
   const replacementPicker = useRef<HTMLInputElement>(null);
   const replacementTarget = useRef<string | null>(null);
@@ -59,6 +70,19 @@ export default function App() {
     },
     [setActiveId, selectTool],
   );
+  const selectHarFile = useCallback(
+    (id: string) => {
+      selectHar(id);
+      selectTool("har");
+    },
+    [selectHar, selectTool],
+  );
+  const uploadHarFiles = useCallback(
+    async (files: File[]) => {
+      if (await openHarFiles(files)) selectTool("har");
+    },
+    [openHarFiles, selectTool],
+  );
   const openPicker = useCallback(() => {
     if (activeTool === "har") harPicker.current?.click();
     else if (activeTool === "console" && activeId) {
@@ -76,22 +100,6 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [openPicker]);
-  const openCapture = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = "";
-    if (!file) return;
-    try {
-      const { readHarCapture } = await import("./utils/har");
-      setCapture(await readHarCapture(file));
-      selectTool("har");
-    } catch (error) {
-      notify(
-        error instanceof Error
-          ? error.message
-          : "Could not read this HAR file. Select a valid .har capture.",
-      );
-    }
-  };
   const style = {
     "--tool-font-size": `${fontSize}px`,
     "--log-font-size": `${fontSize}px`,
@@ -102,21 +110,33 @@ export default function App() {
       : (activeFile?.name ?? t("Log viewer"));
   return (
     <div className="shell" data-theme={theme} style={style}>
-      <Sidebar
+      <FileNavigation
+        open={fileNavigationOpen}
+        onClose={closeFileNavigation}
         logFiles={files}
-        activeLogId={activeId}
+        activeLogId={activeTool === "console" ? activeId : null}
         onSelect={selectFile}
         onOpen={openLogPicker}
         onRemove={removeFile}
+        harFiles={harFiles}
+        activeHarId={activeTool === "har" ? activeHarId : null}
+        onSelectHar={selectHarFile}
+        onOpenHar={openHarPicker}
+        onRemoveHar={removeHar}
       />
       <main>
-        <AppHeader title={title} />
+        <AppHeader
+          title={title}
+          filesOpen={fileNavigationOpen}
+          onOpenFiles={() => setFileNavigationOpen(true)}
+        />
         <ToolTabs activeTool={activeTool} onSelect={selectTool} />
         <div className="content">
           <ToolHeading
             activeTool={activeTool}
             onOpen={openPicker}
             hasLogFiles={files.length > 0}
+            hasHarFiles={harFiles.length > 0}
           />
           <section
             id="panel-console"
@@ -173,11 +193,11 @@ export default function App() {
               aria-labelledby="tab-har"
               hidden={activeTool !== "har"}
             >
-              <RetryableTool load={loadHarInspector}>
-                {(HarInspector) => (
-                  <HarInspector
-                    key={capture?.id ?? "empty"}
-                    capture={capture}
+              <RetryableTool load={loadHarWorkspace}>
+                {(HarWorkspace) => (
+                  <HarWorkspace
+                    files={harFiles}
+                    activeId={activeHarId}
                     onOpen={openHarPicker}
                   />
                 )}
@@ -212,9 +232,14 @@ export default function App() {
       <input
         ref={harPicker}
         type="file"
+        multiple
         accept=".har,application/json,.json"
         className="hidden"
-        onChange={(event) => void openCapture(event)}
+        onChange={(event) => {
+          const files = Array.from(event.currentTarget.files ?? []);
+          event.currentTarget.value = "";
+          void uploadHarFiles(files);
+        }}
       />
     </div>
   );

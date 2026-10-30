@@ -10,36 +10,16 @@
   z-index: 2;
 }
 .brand {
-  height: 31px;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: 8px;
-  padding-left: 7px;
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: -0.8px;
+  min-height: 64px;
+  width: 100%;
 }
-.brandicon {
-  height: 29px;
-  width: 29px;
-  border-radius: 9px;
-  color: #fff;
-  background: #4f71e5;
-  display: grid;
-  place-items: center;
-}
-.blue {
-  color: #4f71e5;
-  margin-left: -8px;
-}
-.brand small {
-  margin-left: 3px;
-  border: 1px solid #e9eaf0;
-  border-radius: 4px;
-  padding: 2px 4px;
-  color: #999dab;
-  letter-spacing: 0.6px;
-  font-size: 8px;
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 .sidecap {
   margin: 39px 0 9px 7px;
@@ -89,10 +69,17 @@
 .file-list {
   display: flex;
   min-height: 0;
-  max-height: 58vh;
+  max-height: 30vh;
   flex-direction: column;
   gap: 3px;
   overflow: auto;
+  scrollbar-width: thin;
+}
+.sidebar-files {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 16px;
   scrollbar-width: thin;
 }
 .filelink {

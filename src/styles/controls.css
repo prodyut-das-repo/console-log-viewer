@@ -55,7 +55,7 @@
 /* Give the log viewer more of the available viewport. */
 .side {
   width: 210px;
-  padding: 20px 12px 12px;
+  padding: 0px 12px 12px;
 }
 main {
   margin-left: 210px;

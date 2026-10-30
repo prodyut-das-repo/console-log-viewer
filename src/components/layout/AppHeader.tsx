@@ -2,7 +2,15 @@ import Icon from "../common/Icon";
 import { languageOptions, useTranslation } from "../../i18n/LanguageProvider";
 import type { Language } from "../../i18n/types";
 import { usePreferences } from "../../providers/PreferencesProvider";
-export default function AppHeader({ title }: { title: string }) {
+export default function AppHeader({
+  title,
+  filesOpen,
+  onOpenFiles,
+}: {
+  title: string;
+  filesOpen: boolean;
+  onOpenFiles: () => void;
+}) {
   const { language, setLanguage, t } = useTranslation();
   const { theme, toggleTheme } = usePreferences();
   const themeLabel = t(
@@ -10,8 +18,21 @@ export default function AppHeader({ title }: { title: string }) {
   );
   return (
     <header>
-      <div className="crumb">
-        <b>{title}</b>
+      <div className="header-leading">
+        <button
+          className="mobile-menu-toggle"
+          type="button"
+          onClick={onOpenFiles}
+          aria-label={t("Open file list")}
+          aria-controls="file-navigation"
+          aria-expanded={filesOpen}
+          aria-haspopup="dialog"
+        >
+          <Icon name="menu" size={20} />
+        </button>
+        <div className="crumb">
+          <b title={title}>{title}</b>
+        </div>
       </div>
       <section>
         <small>

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 const icons = {
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   upload: (
     <>
       <path d="M12 16V4m-4 4 4-4 4 4" />

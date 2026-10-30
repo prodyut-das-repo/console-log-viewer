@@ -1,5 +1,10 @@
 const messages = {
+  Files: "Files",
+  "Open file list": "Open file list",
+  "Close file list": "Close file list",
   "LOG FILES": "LOG FILES",
+  "HAR FILES": "HAR FILES",
+  "Add a HAR file": "Add a HAR file",
   "Add a log file": "Add a log file",
   "Remove {name}": "Remove {name}",
   "Files stay on your device": "Files stay on your device",

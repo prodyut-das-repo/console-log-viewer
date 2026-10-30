@@ -17,6 +17,10 @@ To make a production bundle, run `npm run build`.
 
 Upload or drop plain-text log files such as `.log`, `.txt`, `.json`, `.jsonl`, `.csv`, and `.out`. The viewer keeps each line intact, highlights common severity terms, and renders ANSI terminal color codes. Search, severity filters, wrapping, clipboard copy, and downloading are available in the viewer. Files without ANSI codes or exported styling metadata cannot carry their original Chrome DevTools colors; severity colors are inferred from recognizable words.
 
+## Mobile support
+
+The layout supports phones and tablets: the header menu opens the file list, editors stack vertically, and HAR request and comparison panels adapt to narrow screens. New phone sessions start with a readable 16px text size; saved text-size preferences are retained.
+
 ## Project structure
 
 - `src/App.tsx` coordinates the shared layout, selected tool, and file uploads.

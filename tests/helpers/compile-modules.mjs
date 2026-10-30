@@ -28,13 +28,16 @@ export function compileModules(modules) {
     mkdirSync(dirname(output), { recursive: true });
     writeFileSync(
       output,
-      ts.transpileModule(source, {
-        compilerOptions: {
-          module: ts.ModuleKind.CommonJS,
-          target: ts.ScriptTarget.ES2020,
-          jsx: ts.JsxEmit.ReactJSX,
-        },
-      }).outputText,
+      // React behavior tests do not need to load browser stylesheets.
+      module.endsWith(".css")
+        ? ""
+        : ts.transpileModule(source, {
+            compilerOptions: {
+              module: ts.ModuleKind.CommonJS,
+              target: ts.ScriptTarget.ES2020,
+              jsx: ts.JsxEmit.ReactJSX,
+            },
+          }).outputText,
     );
   }
   return {
