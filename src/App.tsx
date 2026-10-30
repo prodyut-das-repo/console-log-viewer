@@ -99,6 +99,21 @@ interface HarEntry {
 }
 
 type HarDetailTab = "overview" | "request" | "response" | "timing";
+type HarCompareFilter = "all" | "changed" | "added" | "removed" | "unchanged";
+
+interface HarDiffDetail {
+  label: string;
+  before: string;
+  after: string;
+}
+
+interface HarDiff {
+  id: string;
+  kind: Exclude<HarCompareFilter, "all">;
+  baseline?: HarEntry;
+  current?: HarEntry;
+  details: HarDiffDetail[];
+}
 
 const icons = {
   upload: (
@@ -321,6 +336,166 @@ function normalizeHarEntries(value: unknown): HarEntry[] {
   });
 }
 
+function harRequestKey(entry: HarEntry): string {
+  try {
+    const url = new URL(entry.request.url);
+    return `${entry.request.method.toUpperCase()} ${url.origin}${url.pathname}`;
+  } catch {
+    return `${entry.request.method.toUpperCase()} ${entry.request.url.split(/[?#]/, 1)[0]}`;
+  }
+}
+
+function compareHarCaptures(
+  baseline: HarEntry[],
+  current: HarEntry[],
+): HarDiff[] {
+  const groupByKey = (entries: HarEntry[]) => {
+    const groups = new Map<string, HarEntry[]>();
+    entries.forEach((entry) => {
+      const key = harRequestKey(entry);
+      groups.set(key, [...(groups.get(key) ?? []), entry]);
+    });
+    return groups;
+  };
+  const baselineGroups = groupByKey(baseline);
+  const currentGroups = groupByKey(current);
+  const keys = [
+    ...new Set([...baselineGroups.keys(), ...currentGroups.keys()]),
+  ];
+
+  return keys.flatMap((key) => {
+    const beforeEntries = baselineGroups.get(key) ?? [];
+    const afterEntries = currentGroups.get(key) ?? [];
+    return Array.from(
+      { length: Math.max(beforeEntries.length, afterEntries.length) },
+      (_, index) => {
+        const before = beforeEntries[index];
+        const after = afterEntries[index];
+        const id = `${key}#${index}`;
+        if (!before) {
+          return {
+            id,
+            kind: "added" as const,
+            current: after,
+            details: [
+              { label: "Request", before: "Not present", after: "Added" },
+            ],
+          };
+        }
+        if (!after) {
+          return {
+            id,
+            kind: "removed" as const,
+            baseline: before,
+            details: [
+              { label: "Request", before: "Present", after: "Removed" },
+            ],
+          };
+        }
+
+        const details: HarDiffDetail[] = [];
+        const addChange = (
+          label: string,
+          oldValue: string,
+          newValue: string,
+        ) => {
+          if (oldValue !== newValue)
+            details.push({ label, before: oldValue, after: newValue });
+        };
+        addChange("Request URL", before.request.url, after.request.url);
+        addChange(
+          "Status",
+          `${before.response.status} ${before.response.statusText ?? ""}`.trim(),
+          `${after.response.status} ${after.response.statusText ?? ""}`.trim(),
+        );
+        addChange(
+          "Response type",
+          before.response.content?.mimeType ?? "Unknown",
+          after.response.content?.mimeType ?? "Unknown",
+        );
+        const beforeSize =
+          before.response.content?.size ?? before.response.bodySize ?? 0;
+        const afterSize =
+          after.response.content?.size ?? after.response.bodySize ?? 0;
+        if (beforeSize !== afterSize) {
+          details.push({
+            label: "Response size",
+            before: formatSize(beforeSize),
+            after: formatSize(afterSize),
+          });
+        }
+        const beforeTime = before.time ?? 0;
+        const afterTime = after.time ?? 0;
+        if (
+          Math.abs(afterTime - beforeTime) >= Math.max(40, beforeTime * 0.15)
+        ) {
+          details.push({
+            label: "Duration",
+            before: formatDuration(beforeTime),
+            after: formatDuration(afterTime),
+          });
+        }
+        const beforeRequestBody =
+          before.request.postData?.text ??
+          JSON.stringify(before.request.postData?.params ?? []);
+        const afterRequestBody =
+          after.request.postData?.text ??
+          JSON.stringify(after.request.postData?.params ?? []);
+        if (beforeRequestBody !== afterRequestBody) {
+          details.push({
+            label: "Request payload",
+            before: "Previous payload",
+            after: "Updated payload",
+          });
+        }
+        if (
+          (before.response.content?.text ?? "") !==
+          (after.response.content?.text ?? "")
+        ) {
+          details.push({
+            label: "Response body",
+            before: "Previous body",
+            after: "Updated body",
+          });
+        }
+        const headerSignature = (headers: HarHeader[] = []) =>
+          JSON.stringify(
+            headers
+              .map(({ name, value }) => [name.toLowerCase(), value.trim()])
+              .sort(([nameA], [nameB]) => nameA.localeCompare(nameB)),
+          );
+        if (
+          headerSignature(before.request.headers) !==
+          headerSignature(after.request.headers)
+        ) {
+          details.push({
+            label: "Request headers",
+            before: "Previous headers",
+            after: "Updated headers",
+          });
+        }
+        if (
+          headerSignature(before.response.headers) !==
+          headerSignature(after.response.headers)
+        ) {
+          details.push({
+            label: "Response headers",
+            before: "Previous headers",
+            after: "Updated headers",
+          });
+        }
+        return {
+          id,
+          kind: details.length ? ("changed" as const) : ("unchanged" as const),
+          baseline: before,
+          current: after,
+          details,
+        };
+      },
+    );
+  });
+}
+
 function prettifyHarBody(text: string, mimeType = ""): string {
   const looksLikeJson = mimeType.includes("json") || /^[\s]*[\[{]/.test(text);
   if (!looksLikeJson) return text;
@@ -447,12 +622,20 @@ export default function App() {
   const [escapeStatus, setEscapeStatus] = useState("");
   const [harFileName, setHarFileName] = useState("");
   const [harEntries, setHarEntries] = useState<HarEntry[]>([]);
+  const [harCompareName, setHarCompareName] = useState("");
+  const [harCompareEntries, setHarCompareEntries] = useState<HarEntry[]>([]);
+  const [harMode, setHarMode] = useState<"inspect" | "compare">("inspect");
+  const [harCompareFilter, setHarCompareFilter] =
+    useState<HarCompareFilter>("all");
+  const [harCompareQuery, setHarCompareQuery] = useState("");
+  const [selectedHarDiffId, setSelectedHarDiffId] = useState("");
   const [selectedHarIndex, setSelectedHarIndex] = useState<number | null>(null);
   const [harQuery, setHarQuery] = useState("");
   const [harDetailTab, setHarDetailTab] = useState<HarDetailTab>("overview");
   const [harStatus, setHarStatus] = useState("");
   const filePicker = useRef<HTMLInputElement>(null);
   const harPicker = useRef<HTMLInputElement>(null);
+  const harComparePicker = useRef<HTMLInputElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
 
   const lines = useMemo(
@@ -500,6 +683,35 @@ export default function App() {
   );
   const selectedHarEntry =
     selectedHarIndex === null ? null : (harEntries[selectedHarIndex] ?? null);
+  const harDiffs = useMemo(
+    () => compareHarCaptures(harEntries, harCompareEntries),
+    [harEntries, harCompareEntries],
+  );
+  const filteredHarDiffs = useMemo(
+    () =>
+      harDiffs.filter((diff) => {
+        if (harCompareFilter !== "all" && diff.kind !== harCompareFilter) {
+          return false;
+        }
+        const entry = diff.current ?? diff.baseline;
+        const searchText = `${entry?.request.method ?? ""} ${entry?.request.url ?? ""} ${diff.kind} ${diff.details.map((detail) => detail.label).join(" ")}`;
+        return searchText.toLowerCase().includes(harCompareQuery.toLowerCase());
+      }),
+    [harDiffs, harCompareFilter, harCompareQuery],
+  );
+  const selectedHarDiff =
+    filteredHarDiffs.find((diff) => diff.id === selectedHarDiffId) ??
+    filteredHarDiffs[0] ??
+    null;
+  const harDiffCounts = harDiffs.reduce<
+    Record<Exclude<HarCompareFilter, "all">, number>
+  >(
+    (counts, diff) => {
+      counts[diff.kind] += 1;
+      return counts;
+    },
+    { changed: 0, added: 0, removed: 0, unchanged: 0 },
+  );
   const harErrorCount = harEntries.filter(
     ({ response }) => response.status >= 400,
   ).length;
@@ -571,11 +783,42 @@ export default function App() {
       }
       setHarFileName(selectedFile.name);
       setHarEntries(entries);
+      setHarCompareName("");
+      setHarCompareEntries([]);
+      setHarMode("inspect");
       setSelectedHarIndex(0);
       setHarDetailTab("overview");
       setHarQuery("");
       setHarStatus("");
       setActiveTool("har");
+    } catch {
+      setHarStatus(
+        "Could not read this HAR file. Select a valid .har capture.",
+      );
+    }
+  }
+
+  async function openHarCompareFile(
+    selectedFile: File | undefined,
+  ): Promise<void> {
+    if (!selectedFile) return;
+
+    try {
+      const parsed: unknown = JSON.parse(await selectedFile.text());
+      const root = isRecord(parsed) ? parsed : null;
+      const log = root && isRecord(root.log) ? root.log : null;
+      const entries = normalizeHarEntries(log?.entries);
+      if (!entries.length) {
+        setHarStatus("This file does not contain valid HAR request entries.");
+        return;
+      }
+      setHarCompareName(selectedFile.name);
+      setHarCompareEntries(entries);
+      setHarMode("compare");
+      setHarCompareFilter("all");
+      setHarCompareQuery("");
+      setSelectedHarDiffId("");
+      setHarStatus("");
     } catch {
       setHarStatus(
         "Could not read this HAR file. Select a valid .har capture.",
@@ -668,6 +911,13 @@ export default function App() {
 
   function handleHarFileChange(event: ChangeEvent<HTMLInputElement>): void {
     void openHarFile(event.currentTarget.files?.[0]);
+    event.currentTarget.value = "";
+  }
+
+  function handleHarCompareFileChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ): void {
+    void openHarCompareFile(event.currentTarget.files?.[0]);
     event.currentTarget.value = "";
   }
 
@@ -1346,311 +1596,543 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="har-summary">
-                  <article>
-                    <label>Requests</label>
-                    <strong>{harEntries.length.toLocaleString()}</strong>
-                  </article>
-                  <article>
-                    <label>Errors</label>
-                    <strong className={harErrorCount ? "har-error" : ""}>
-                      {harErrorCount.toLocaleString()}
-                    </strong>
-                  </article>
-                  <article>
-                    <label>Transferred</label>
-                    <strong>{formatSize(harTransferredBytes)}</strong>
-                  </article>
-                  <article>
-                    <label>Total duration</label>
-                    <strong>{formatDuration(harTotalDuration)}</strong>
-                  </article>
-                </div>
-                <div className="har-toolbar">
-                  <div className="har-file-label">
-                    <b>{harFileName}</b>
-                    <span>{filteredHarEntries.length} matching requests</span>
-                  </div>
-                  <label className="har-search">
-                    <Icon name="search" size={15} />
-                    <input
-                      value={harQuery}
-                      onChange={(event) =>
-                        setHarQuery(event.currentTarget.value)
-                      }
-                      placeholder="Filter by URL, method, status..."
-                      aria-label="Filter HAR requests"
-                    />
-                  </label>
-                </div>
-                <div className="har-workspace">
-                  <div className="har-request-list" aria-label="HAR requests">
-                    {filteredHarEntries.length ? (
-                      filteredHarEntries.map(({ entry, index }) => {
-                        let endpoint = entry.request.url;
-                        try {
-                          const url = new URL(entry.request.url);
-                          endpoint = url.pathname + url.search;
-                        } catch {
-                          // Keep the URL as captured if it cannot be parsed.
-                        }
-                        const size =
-                          entry.response.content?.size ??
-                          entry.response.bodySize ??
-                          0;
-                        return (
-                          <button
-                            className={
-                              "har-request" +
-                              (selectedHarIndex === index ? " selected" : "")
-                            }
-                            key={`${index}-${entry.request.url}`}
-                            onClick={() => {
-                              setSelectedHarIndex(index);
-                              setHarDetailTab("overview");
-                            }}
-                            type="button"
-                          >
-                            <div className="har-request-topline">
-                              <b className="har-method">
-                                {entry.request.method}
-                              </b>
-                              <b
-                                className={
-                                  "har-status-code" +
-                                  (entry.response.status >= 400
-                                    ? " bad"
-                                    : entry.response.status >= 300
-                                      ? " redirect"
-                                      : "")
-                                }
-                              >
-                                {entry.response.status}
-                              </b>
-                            </div>
-                            <span
-                              className="har-endpoint"
-                              title={entry.request.url}
-                            >
-                              {endpoint}
-                            </span>
-                            <div className="har-request-meta">
-                              <span>
-                                {entry.response.content?.mimeType ||
-                                  "unknown type"}
-                              </span>
-                              <span>{formatSize(size)}</span>
-                              <span>{formatDuration(entry.time ?? 0)}</span>
-                            </div>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="har-no-requests">
-                        No matching requests.
-                      </div>
-                    )}
-                  </div>
-                  {selectedHarEntry ? (
-                    <div className="har-detail">
-                      <div className="har-detail-title">
-                        <div>
-                          <span className="har-method large">
-                            {selectedHarEntry.request.method}
-                          </span>
-                          <h2 title={selectedHarEntry.request.url}>
-                            {selectedHarEntry.request.url}
-                          </h2>
-                        </div>
-                        <span
-                          className={
-                            "har-status-pill" +
-                            (selectedHarEntry.response.status >= 400
-                              ? " bad"
-                              : selectedHarEntry.response.status >= 300
-                                ? " redirect"
-                                : "")
-                          }
-                        >
-                          {selectedHarEntry.response.status}{" "}
-                          {selectedHarEntry.response.statusText}
-                        </span>
-                      </div>
-                      <nav
-                        className="har-detail-tabs"
-                        aria-label="Request details"
+                <div className="har-compare-header">
+                  {harCompareEntries.length > 0 ? (
+                    <div
+                      className="har-mode-switch"
+                      role="group"
+                      aria-label="HAR view"
+                    >
+                      <button
+                        className={harMode === "inspect" ? "active" : ""}
+                        onClick={() => setHarMode("inspect")}
+                        type="button"
                       >
-                        {(
-                          [
-                            "overview",
-                            "request",
-                            "response",
-                            "timing",
-                          ] as HarDetailTab[]
-                        ).map((tab) => (
-                          <button
-                            className={harDetailTab === tab ? "active" : ""}
-                            key={tab}
-                            onClick={() => setHarDetailTab(tab)}
-                            type="button"
-                          >
-                            {tab[0].toUpperCase() + tab.slice(1)}
-                          </button>
-                        ))}
-                      </nav>
-                      <div className="har-detail-content">
-                        {harDetailTab === "overview" && (
-                          <>
-                            <h3>General</h3>
-                            <dl className="har-kv">
-                              <dt>Request URL</dt>
-                              <dd>{selectedHarEntry.request.url}</dd>
-                              <dt>Request method</dt>
-                              <dd>{selectedHarEntry.request.method}</dd>
-                              <dt>Status code</dt>
-                              <dd>
-                                {selectedHarEntry.response.status}{" "}
-                                {selectedHarEntry.response.statusText}
-                              </dd>
-                              <dt>HTTP version</dt>
-                              <dd>
-                                {selectedHarEntry.response.httpVersion || "—"}
-                              </dd>
-                              <dt>Started</dt>
-                              <dd>
-                                {selectedHarEntry.startedDateTime
-                                  ? new Date(
-                                      selectedHarEntry.startedDateTime,
-                                    ).toLocaleString()
-                                  : "—"}
-                              </dd>
-                              <dt>Resource type</dt>
-                              <dd>
-                                {selectedHarEntry._resourceType ||
-                                  selectedHarEntry.response.content?.mimeType ||
-                                  "—"}
-                              </dd>
-                              <dt>Remote address</dt>
-                              <dd>{selectedHarEntry.serverIPAddress || "—"}</dd>
-                              <dt>Duration</dt>
-                              <dd>
-                                {formatDuration(selectedHarEntry.time ?? 0)}
-                              </dd>
-                            </dl>
-                          </>
-                        )}
-                        {harDetailTab === "request" && (
-                          <>
-                            <HarHeaders
-                              title="Request headers"
-                              headers={selectedHarEntry.request.headers}
-                            />
-                            {(selectedHarEntry.request.queryString?.length ??
-                              0) > 0 && (
-                              <HarParams
-                                title="Query parameters"
-                                params={
-                                  selectedHarEntry.request.queryString ?? []
-                                }
-                              />
-                            )}
-                            {selectedHarEntry.request.postData?.text && (
-                              <>
-                                <h3>
-                                  Request payload{" "}
-                                  <span>
-                                    {selectedHarEntry.request.postData.mimeType}
-                                  </span>
-                                </h3>
-                                <pre className="har-body">
-                                  {prettifyHarBody(
-                                    selectedHarEntry.request.postData.text,
-                                    selectedHarEntry.request.postData.mimeType,
-                                  )}
-                                </pre>
-                              </>
-                            )}
-                          </>
-                        )}
-                        {harDetailTab === "response" && (
-                          <>
-                            <HarHeaders
-                              title="Response headers"
-                              headers={selectedHarEntry.response.headers}
-                            />
-                            <h3>
-                              Response body{" "}
-                              <span>
-                                {selectedHarEntry.response.content?.mimeType ||
-                                  "unknown type"}
-                              </span>
-                            </h3>
-                            {selectedHarEntry.response.content?.text ? (
-                              <pre className="har-body">
-                                {selectedHarEntry.response.content.encoding ===
-                                "base64"
-                                  ? `[Base64 encoded content]\n${selectedHarEntry.response.content.text}`
-                                  : prettifyHarBody(
-                                      selectedHarEntry.response.content.text,
-                                      selectedHarEntry.response.content
-                                        .mimeType,
-                                    )}
-                              </pre>
-                            ) : (
-                              <p className="har-muted">
-                                No response body was included in this capture.
-                              </p>
-                            )}
-                          </>
-                        )}
-                        {harDetailTab === "timing" && (
-                          <>
-                            <h3>
-                              Request timing{" "}
-                              <span>
-                                {formatDuration(selectedHarEntry.time ?? 0)}{" "}
-                                total
-                              </span>
-                            </h3>
-                            {Object.keys(selectedHarEntry.timings ?? {})
-                              .length ? (
-                              <div className="har-timings">
-                                {Object.entries(
-                                  selectedHarEntry.timings ?? {},
-                                ).map(([label, duration]) => (
-                                  <div className="har-timing" key={label}>
-                                    <span>{label}</span>
-                                    <div>
-                                      <i
-                                        style={{
-                                          width: `${Math.max(2, Math.min(100, (duration / Math.max(selectedHarEntry.time ?? 1, 1)) * 100))}%`,
-                                        }}
-                                      />
-                                    </div>
-                                    <b>
-                                      {duration < 0
-                                        ? "—"
-                                        : formatDuration(duration)}
-                                    </b>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="har-muted">
-                                Timing breakdown was not included in this
-                                capture.
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
+                        Inspect capture
+                      </button>
+                      <button
+                        className={harMode === "compare" ? "active" : ""}
+                        onClick={() => setHarMode("compare")}
+                        type="button"
+                      >
+                        Compare captures
+                      </button>
                     </div>
                   ) : (
-                    <div className="har-detail-placeholder">
-                      Choose a request to inspect its details.
-                    </div>
+                    <span className="har-compare-hint">
+                      Compare this capture with another session
+                    </span>
                   )}
+                  <button
+                    className="har-compare-button"
+                    onClick={() => harComparePicker.current?.click()}
+                    type="button"
+                  >
+                    {harCompareName
+                      ? "Replace comparison capture"
+                      : "Compare with capture"}
+                  </button>
                 </div>
+                {harMode === "compare" && harCompareEntries.length > 0 ? (
+                  <>
+                    <div className="har-summary har-compare-summary">
+                      <article>
+                        <label>Changed</label>
+                        <strong>{harDiffCounts.changed}</strong>
+                      </article>
+                      <article>
+                        <label>Added in new capture</label>
+                        <strong>{harDiffCounts.added}</strong>
+                      </article>
+                      <article>
+                        <label>Removed from new capture</label>
+                        <strong>{harDiffCounts.removed}</strong>
+                      </article>
+                      <article>
+                        <label>Unchanged</label>
+                        <strong>{harDiffCounts.unchanged}</strong>
+                      </article>
+                    </div>
+                    <div className="har-compare-toolbar">
+                      <label className="har-search">
+                        <Icon name="search" size={15} />
+                        <input
+                          value={harCompareQuery}
+                          onChange={(event) =>
+                            setHarCompareQuery(event.currentTarget.value)
+                          }
+                          placeholder="Search compared requests..."
+                          aria-label="Search comparison results"
+                        />
+                      </label>
+                      <select
+                        className="har-compare-filter"
+                        value={harCompareFilter}
+                        onChange={(event) =>
+                          setHarCompareFilter(
+                            event.currentTarget.value as HarCompareFilter,
+                          )
+                        }
+                        aria-label="Filter comparison results"
+                      >
+                        <option value="all">
+                          All changes ({harDiffs.length})
+                        </option>
+                        <option value="changed">
+                          Changed ({harDiffCounts.changed})
+                        </option>
+                        <option value="added">
+                          Added ({harDiffCounts.added})
+                        </option>
+                        <option value="removed">
+                          Removed ({harDiffCounts.removed})
+                        </option>
+                        <option value="unchanged">
+                          Unchanged ({harDiffCounts.unchanged})
+                        </option>
+                      </select>
+                    </div>
+                    <div className="har-compare-workspace">
+                      <div
+                        className="har-diff-list"
+                        aria-label="HAR comparison results"
+                      >
+                        {filteredHarDiffs.length ? (
+                          filteredHarDiffs.map((diff) => {
+                            const entry = diff.current ?? diff.baseline;
+                            let endpoint = entry?.request.url ?? "";
+                            try {
+                              const url = new URL(endpoint);
+                              endpoint = url.pathname + url.search;
+                            } catch {
+                              // Display the original request URL for relative entries.
+                            }
+                            return (
+                              <button
+                                className={`har-diff-row ${diff.kind}${selectedHarDiff?.id === diff.id ? " selected" : ""}`}
+                                key={diff.id}
+                                onClick={() => setSelectedHarDiffId(diff.id)}
+                                type="button"
+                              >
+                                <span className={`har-diff-kind ${diff.kind}`}>
+                                  {diff.kind}
+                                </span>
+                                <b className="har-method">
+                                  {entry?.request.method}
+                                </b>
+                                <span
+                                  className="har-diff-endpoint"
+                                  title={entry?.request.url}
+                                >
+                                  {endpoint}
+                                </span>
+                                <small>
+                                  {diff.details.length
+                                    ? `${diff.details.length} ${diff.details.length === 1 ? "difference" : "differences"}`
+                                    : "No detected changes"}
+                                </small>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="har-no-requests">
+                            No comparison results match this filter.
+                          </div>
+                        )}
+                      </div>
+                      {selectedHarDiff ? (
+                        <div className="har-diff-detail">
+                          <div className="har-diff-detail-heading">
+                            <div>
+                              <span
+                                className={`har-diff-kind ${selectedHarDiff.kind}`}
+                              >
+                                {selectedHarDiff.kind}
+                              </span>
+                              <h2>
+                                {
+                                  (
+                                    selectedHarDiff.current ??
+                                    selectedHarDiff.baseline
+                                  )?.request.method
+                                }{" "}
+                                request
+                              </h2>
+                              <p>
+                                {
+                                  (
+                                    selectedHarDiff.current ??
+                                    selectedHarDiff.baseline
+                                  )?.request.url
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          <div className="har-diff-captures">
+                            <div>
+                              <b>BEFORE</b>
+                              <span>{harFileName}</span>
+                            </div>
+                            <div>
+                              <b>AFTER</b>
+                              <span>{harCompareName}</span>
+                            </div>
+                          </div>
+                          <div className="har-diff-fields">
+                            {selectedHarDiff.details.map((detail) => (
+                              <div
+                                className="har-diff-field"
+                                key={detail.label}
+                              >
+                                <b>{detail.label}</b>
+                                <span>{detail.before}</span>
+                                <span>{detail.after}</span>
+                              </div>
+                            ))}
+                            {selectedHarDiff.kind === "unchanged" && (
+                              <p className="har-muted">
+                                No differences detected for this request.
+                              </p>
+                            )}
+                          </div>
+                          <div className="har-diff-legend">
+                            <span>Before shows the original capture.</span>
+                            <span>After shows the comparison capture.</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="har-detail-placeholder">
+                          No matching requests.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="har-summary">
+                      <article>
+                        <label>Requests</label>
+                        <strong>{harEntries.length.toLocaleString()}</strong>
+                      </article>
+                      <article>
+                        <label>Errors</label>
+                        <strong className={harErrorCount ? "har-error" : ""}>
+                          {harErrorCount.toLocaleString()}
+                        </strong>
+                      </article>
+                      <article>
+                        <label>Transferred</label>
+                        <strong>{formatSize(harTransferredBytes)}</strong>
+                      </article>
+                      <article>
+                        <label>Total duration</label>
+                        <strong>{formatDuration(harTotalDuration)}</strong>
+                      </article>
+                    </div>
+                    <div className="har-toolbar">
+                      <div className="har-file-label">
+                        <b>{harFileName}</b>
+                        <span>
+                          {filteredHarEntries.length} matching requests
+                        </span>
+                      </div>
+                      <label className="har-search">
+                        <Icon name="search" size={15} />
+                        <input
+                          value={harQuery}
+                          onChange={(event) =>
+                            setHarQuery(event.currentTarget.value)
+                          }
+                          placeholder="Filter by URL, method, status..."
+                          aria-label="Filter HAR requests"
+                        />
+                      </label>
+                    </div>
+                    <div className="har-workspace">
+                      <div
+                        className="har-request-list"
+                        aria-label="HAR requests"
+                      >
+                        {filteredHarEntries.length ? (
+                          filteredHarEntries.map(({ entry, index }) => {
+                            let endpoint = entry.request.url;
+                            try {
+                              const url = new URL(entry.request.url);
+                              endpoint = url.pathname + url.search;
+                            } catch {
+                              // Keep the URL as captured if it cannot be parsed.
+                            }
+                            const size =
+                              entry.response.content?.size ??
+                              entry.response.bodySize ??
+                              0;
+                            return (
+                              <button
+                                className={
+                                  "har-request" +
+                                  (selectedHarIndex === index
+                                    ? " selected"
+                                    : "")
+                                }
+                                key={`${index}-${entry.request.url}`}
+                                onClick={() => {
+                                  setSelectedHarIndex(index);
+                                  setHarDetailTab("overview");
+                                }}
+                                type="button"
+                              >
+                                <div className="har-request-topline">
+                                  <b className="har-method">
+                                    {entry.request.method}
+                                  </b>
+                                  <b
+                                    className={
+                                      "har-status-code" +
+                                      (entry.response.status >= 400
+                                        ? " bad"
+                                        : entry.response.status >= 300
+                                          ? " redirect"
+                                          : "")
+                                    }
+                                  >
+                                    {entry.response.status}
+                                  </b>
+                                </div>
+                                <span
+                                  className="har-endpoint"
+                                  title={entry.request.url}
+                                >
+                                  {endpoint}
+                                </span>
+                                <div className="har-request-meta">
+                                  <span>
+                                    {entry.response.content?.mimeType ||
+                                      "unknown type"}
+                                  </span>
+                                  <span>{formatSize(size)}</span>
+                                  <span>{formatDuration(entry.time ?? 0)}</span>
+                                </div>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="har-no-requests">
+                            No matching requests.
+                          </div>
+                        )}
+                      </div>
+                      {selectedHarEntry ? (
+                        <div className="har-detail">
+                          <div className="har-detail-title">
+                            <div>
+                              <span className="har-method large">
+                                {selectedHarEntry.request.method}
+                              </span>
+                              <h2 title={selectedHarEntry.request.url}>
+                                {selectedHarEntry.request.url}
+                              </h2>
+                            </div>
+                            <span
+                              className={
+                                "har-status-pill" +
+                                (selectedHarEntry.response.status >= 400
+                                  ? " bad"
+                                  : selectedHarEntry.response.status >= 300
+                                    ? " redirect"
+                                    : "")
+                              }
+                            >
+                              {selectedHarEntry.response.status}{" "}
+                              {selectedHarEntry.response.statusText}
+                            </span>
+                          </div>
+                          <nav
+                            className="har-detail-tabs"
+                            aria-label="Request details"
+                          >
+                            {(
+                              [
+                                "overview",
+                                "request",
+                                "response",
+                                "timing",
+                              ] as HarDetailTab[]
+                            ).map((tab) => (
+                              <button
+                                className={harDetailTab === tab ? "active" : ""}
+                                key={tab}
+                                onClick={() => setHarDetailTab(tab)}
+                                type="button"
+                              >
+                                {tab[0].toUpperCase() + tab.slice(1)}
+                              </button>
+                            ))}
+                          </nav>
+                          <div className="har-detail-content">
+                            {harDetailTab === "overview" && (
+                              <>
+                                <h3>General</h3>
+                                <dl className="har-kv">
+                                  <dt>Request URL</dt>
+                                  <dd>{selectedHarEntry.request.url}</dd>
+                                  <dt>Request method</dt>
+                                  <dd>{selectedHarEntry.request.method}</dd>
+                                  <dt>Status code</dt>
+                                  <dd>
+                                    {selectedHarEntry.response.status}{" "}
+                                    {selectedHarEntry.response.statusText}
+                                  </dd>
+                                  <dt>HTTP version</dt>
+                                  <dd>
+                                    {selectedHarEntry.response.httpVersion ||
+                                      "—"}
+                                  </dd>
+                                  <dt>Started</dt>
+                                  <dd>
+                                    {selectedHarEntry.startedDateTime
+                                      ? new Date(
+                                          selectedHarEntry.startedDateTime,
+                                        ).toLocaleString()
+                                      : "—"}
+                                  </dd>
+                                  <dt>Resource type</dt>
+                                  <dd>
+                                    {selectedHarEntry._resourceType ||
+                                      selectedHarEntry.response.content
+                                        ?.mimeType ||
+                                      "—"}
+                                  </dd>
+                                  <dt>Remote address</dt>
+                                  <dd>
+                                    {selectedHarEntry.serverIPAddress || "—"}
+                                  </dd>
+                                  <dt>Duration</dt>
+                                  <dd>
+                                    {formatDuration(selectedHarEntry.time ?? 0)}
+                                  </dd>
+                                </dl>
+                              </>
+                            )}
+                            {harDetailTab === "request" && (
+                              <>
+                                <HarHeaders
+                                  title="Request headers"
+                                  headers={selectedHarEntry.request.headers}
+                                />
+                                {(selectedHarEntry.request.queryString
+                                  ?.length ?? 0) > 0 && (
+                                  <HarParams
+                                    title="Query parameters"
+                                    params={
+                                      selectedHarEntry.request.queryString ?? []
+                                    }
+                                  />
+                                )}
+                                {selectedHarEntry.request.postData?.text && (
+                                  <>
+                                    <h3>
+                                      Request payload{" "}
+                                      <span>
+                                        {
+                                          selectedHarEntry.request.postData
+                                            .mimeType
+                                        }
+                                      </span>
+                                    </h3>
+                                    <pre className="har-body">
+                                      {prettifyHarBody(
+                                        selectedHarEntry.request.postData.text,
+                                        selectedHarEntry.request.postData
+                                          .mimeType,
+                                      )}
+                                    </pre>
+                                  </>
+                                )}
+                              </>
+                            )}
+                            {harDetailTab === "response" && (
+                              <>
+                                <HarHeaders
+                                  title="Response headers"
+                                  headers={selectedHarEntry.response.headers}
+                                />
+                                <h3>
+                                  Response body{" "}
+                                  <span>
+                                    {selectedHarEntry.response.content
+                                      ?.mimeType || "unknown type"}
+                                  </span>
+                                </h3>
+                                {selectedHarEntry.response.content?.text ? (
+                                  <pre className="har-body">
+                                    {selectedHarEntry.response.content
+                                      .encoding === "base64"
+                                      ? `[Base64 encoded content]\n${selectedHarEntry.response.content.text}`
+                                      : prettifyHarBody(
+                                          selectedHarEntry.response.content
+                                            .text,
+                                          selectedHarEntry.response.content
+                                            .mimeType,
+                                        )}
+                                  </pre>
+                                ) : (
+                                  <p className="har-muted">
+                                    No response body was included in this
+                                    capture.
+                                  </p>
+                                )}
+                              </>
+                            )}
+                            {harDetailTab === "timing" && (
+                              <>
+                                <h3>
+                                  Request timing{" "}
+                                  <span>
+                                    {formatDuration(selectedHarEntry.time ?? 0)}{" "}
+                                    total
+                                  </span>
+                                </h3>
+                                {Object.keys(selectedHarEntry.timings ?? {})
+                                  .length ? (
+                                  <div className="har-timings">
+                                    {Object.entries(
+                                      selectedHarEntry.timings ?? {},
+                                    ).map(([label, duration]) => (
+                                      <div className="har-timing" key={label}>
+                                        <span>{label}</span>
+                                        <div>
+                                          <i
+                                            style={{
+                                              width: `${Math.max(2, Math.min(100, (duration / Math.max(selectedHarEntry.time ?? 1, 1)) * 100))}%`,
+                                            }}
+                                          />
+                                        </div>
+                                        <b>
+                                          {duration < 0
+                                            ? "—"
+                                            : formatDuration(duration)}
+                                        </b>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="har-muted">
+                                    Timing breakdown was not included in this
+                                    capture.
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="har-detail-placeholder">
+                          Choose a request to inspect its details.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </section>
@@ -1669,6 +2151,20 @@ export default function App() {
         accept=".har,application/json,.json"
         className="hidden"
         onChange={handleHarFileChange}
+      />
+      <input
+        ref={harComparePicker}
+        type="file"
+        accept=".har,application/json,.json"
+        className="hidden"
+        onChange={handleHarCompareFileChange}
+      />
+      <input
+        ref={harComparePicker}
+        type="file"
+        accept=".har,application/json,.json"
+        className="hidden"
+        onChange={handleHarCompareFileChange}
       />
     </div>
   );
