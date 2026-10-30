@@ -22,6 +22,7 @@ const demoLogs = `2024-08-21T09:41:02.118Z  INFO  [app] Starting application v2.
 type Severity = "error" | "warn" | "debug" | "info" | "default";
 type LogFilter = "all" | Severity;
 type Theme = "light" | "dark";
+type ToolTab = "console" | "formatter" | "escape" | "har";
 
 interface LogFile {
   name: string;
@@ -42,6 +43,62 @@ interface LogCounts {
   info: number;
   default: number;
 }
+
+interface HarHeader {
+  name: string;
+  value: string;
+}
+
+interface HarParam {
+  name: string;
+  value?: string;
+}
+
+interface HarPostData {
+  mimeType?: string;
+  text?: string;
+  params?: HarParam[];
+}
+
+interface HarRequest {
+  method: string;
+  url: string;
+  headers?: HarHeader[];
+  queryString?: HarParam[];
+  postData?: HarPostData;
+  headersSize?: number;
+  bodySize?: number;
+}
+
+interface HarResponse {
+  status: number;
+  statusText?: string;
+  httpVersion?: string;
+  headers?: HarHeader[];
+  content?: {
+    size?: number;
+    mimeType?: string;
+    text?: string;
+    encoding?: string;
+  };
+  redirectURL?: string;
+  headersSize?: number;
+  bodySize?: number;
+}
+
+interface HarEntry {
+  startedDateTime?: string;
+  time?: number;
+  request: HarRequest;
+  response: HarResponse;
+  timings?: Record<string, number>;
+  _resourceType?: string;
+  cache?: Record<string, unknown>;
+  serverIPAddress?: string;
+  connection?: string;
+}
+
+type HarDetailTab = "overview" | "request" | "response" | "timing";
 
 const icons = {
   upload: (
@@ -115,17 +172,105 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   );
 }
 
+function FontSizeControl({
+  fontSize,
+  onChange,
+  onReset,
+  label,
+}: {
+  fontSize: number;
+  onChange: (delta: number) => void;
+  onReset: () => void;
+  label: string;
+}) {
+  return (
+    <div className="font-size-control" role="group" aria-label={label}>
+      <button
+        type="button"
+        onClick={() => onChange(-1)}
+        disabled={fontSize <= 8}
+        title="Decrease text size"
+        aria-label="Decrease text size"
+      >
+        A−
+      </button>
+      <button
+        type="button"
+        className="font-size-reset"
+        onClick={onReset}
+        title="Reset text size"
+        aria-label={`Reset text size (currently ${fontSize} pixels)`}
+      >
+        {fontSize}px
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(1)}
+        disabled={fontSize >= 20}
+        title="Increase text size"
+        aria-label="Increase text size"
+      >
+        A+
+      </button>
+    </div>
+  );
+}
+
+function HarHeaders({
+  title,
+  headers,
+}: {
+  title: string;
+  headers?: HarHeader[];
+}) {
+  return (
+    <>
+      <h3>
+        {title} <span>{headers?.length ?? 0}</span>
+      </h3>
+      <div className="har-headers">
+        {headers?.length ? (
+          headers.map((header, index) => (
+            <div key={`${header.name}-${index}`}>
+              <b>{header.name}</b>
+              <span>{header.value}</span>
+            </div>
+          ))
+        ) : (
+          <p>No headers in this capture.</p>
+        )}
+      </div>
+    </>
+  );
+}
+
+function HarParams({ title, params }: { title: string; params: HarParam[] }) {
+  return (
+    <>
+      <h3>{title}</h3>
+      <div className="har-headers">
+        {params.map((param, index) => (
+          <div key={`${param.name}-${index}`}>
+            <b>{param.name}</b>
+            <span>{param.value}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function getSeverity(text: string): Severity {
-  if (/(error|fatal|critical|exception|failed|failure)/i.test(text)) {
+  if (/\b(error|fatal|critical|exception|failed|failure)\b/i.test(text)) {
     return "error";
   }
-  if (/(warn(?:ing)?|deprecated)/i.test(text)) {
+  if (/\b(warn(?:ing)?|deprecated)\b/i.test(text)) {
     return "warn";
   }
-  if (/(debug|trace|verbose)/i.test(text)) {
+  if (/\b(debug|trace|verbose)\b/i.test(text)) {
     return "debug";
   }
-  if (/(info|success|ready|started|listening)/i.test(text)) {
+  if (/\b(info|success|ready|started|listening)\b/i.test(text)) {
     return "info";
   }
   return "default";
@@ -139,6 +284,51 @@ function formatSize(bytes: number): string {
     return (bytes / 1024).toFixed(1) + " KB";
   }
   return (bytes / 1048576).toFixed(2) + " MB";
+}
+
+function formatDuration(milliseconds: number): string {
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return "—";
+  return milliseconds < 1000
+    ? `${Math.round(milliseconds)} ms`
+    : `${(milliseconds / 1000).toFixed(2)} s`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeHarEntries(value: unknown): HarEntry[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (
+      !isRecord(item) ||
+      !isRecord(item.request) ||
+      !isRecord(item.response)
+    ) {
+      return [];
+    }
+    const request = item.request;
+    const response = item.response;
+    if (
+      typeof request.method !== "string" ||
+      typeof request.url !== "string" ||
+      typeof response.status !== "number"
+    ) {
+      return [];
+    }
+    return [item as unknown as HarEntry];
+  });
+}
+
+function prettifyHarBody(text: string, mimeType = ""): string {
+  const looksLikeJson = mimeType.includes("json") || /^[\s]*[\[{]/.test(text);
+  if (!looksLikeJson) return text;
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
 }
 
 function escapeHtml(value: string): string {
@@ -248,7 +438,21 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [fontSize, setFontSize] = useState<number>(getInitialFontSize);
+  const [activeTool, setActiveTool] = useState<ToolTab>("console");
+  const [jsonInput, setJsonInput] = useState("");
+  const [jsonOutput, setJsonOutput] = useState("");
+  const [jsonStatus, setJsonStatus] = useState("");
+  const [escapeInput, setEscapeInput] = useState("");
+  const [escapeOutput, setEscapeOutput] = useState("");
+  const [escapeStatus, setEscapeStatus] = useState("");
+  const [harFileName, setHarFileName] = useState("");
+  const [harEntries, setHarEntries] = useState<HarEntry[]>([]);
+  const [selectedHarIndex, setSelectedHarIndex] = useState<number | null>(null);
+  const [harQuery, setHarQuery] = useState("");
+  const [harDetailTab, setHarDetailTab] = useState<HarDetailTab>("overview");
+  const [harStatus, setHarStatus] = useState("");
   const filePicker = useRef<HTMLInputElement>(null);
+  const harPicker = useRef<HTMLInputElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
 
   const lines = useMemo(
@@ -282,6 +486,31 @@ export default function App() {
             (!query || entry.text.toLowerCase().includes(query.toLowerCase())),
         ),
     [lines, filter, query],
+  );
+
+  const filteredHarEntries = useMemo(
+    () =>
+      harEntries
+        .map((entry, index) => ({ entry, index }))
+        .filter(({ entry }) => {
+          const searchText = `${entry.request.method} ${entry.request.url} ${entry.response.status} ${entry.response.content?.mimeType ?? ""}`;
+          return searchText.toLowerCase().includes(harQuery.toLowerCase());
+        }),
+    [harEntries, harQuery],
+  );
+  const selectedHarEntry =
+    selectedHarIndex === null ? null : (harEntries[selectedHarIndex] ?? null);
+  const harErrorCount = harEntries.filter(
+    ({ response }) => response.status >= 400,
+  ).length;
+  const harTransferredBytes = harEntries.reduce(
+    (total, { response }) =>
+      total + Math.max(0, response.content?.size ?? response.bodySize ?? 0),
+    0,
+  );
+  const harTotalDuration = harEntries.reduce(
+    (total, { time }) => total + Math.max(0, time ?? 0),
+    0,
   );
 
   useEffect(() => {
@@ -328,14 +557,93 @@ export default function App() {
     }
   }
 
-  async function copyLogs(): Promise<void> {
+  async function openHarFile(selectedFile: File | undefined): Promise<void> {
+    if (!selectedFile) return;
+
     try {
-      await navigator.clipboard.writeText(file.text);
-      setToast("Copied to clipboard");
+      const parsed: unknown = JSON.parse(await selectedFile.text());
+      const root = isRecord(parsed) ? parsed : null;
+      const log = root && isRecord(root.log) ? root.log : null;
+      const entries = normalizeHarEntries(log?.entries);
+      if (!entries.length) {
+        setHarStatus("This file does not contain valid HAR request entries.");
+        return;
+      }
+      setHarFileName(selectedFile.name);
+      setHarEntries(entries);
+      setSelectedHarIndex(0);
+      setHarDetailTab("overview");
+      setHarQuery("");
+      setHarStatus("");
+      setActiveTool("har");
+    } catch {
+      setHarStatus(
+        "Could not read this HAR file. Select a valid .har capture.",
+      );
+    }
+  }
+
+  async function copyLogs(): Promise<void> {
+    await copyText(file.text, "Log copied to clipboard");
+  }
+
+  async function copyText(text: string, successMessage: string): Promise<void> {
+    if (!text) {
+      setToast("Nothing to copy");
+      window.setTimeout(() => setToast(""), 2200);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setToast(successMessage);
     } catch {
       setToast("Clipboard unavailable in this browser");
     }
     window.setTimeout(() => setToast(""), 2200);
+  }
+
+  function formatJson(compact = false): void {
+    try {
+      const parsed: unknown = JSON.parse(jsonInput);
+      setJsonOutput(
+        JSON.stringify(parsed, null, compact ? undefined : 2) ?? "",
+      );
+      setJsonStatus(compact ? "JSON minified" : "JSON formatted");
+    } catch (error) {
+      setJsonOutput("");
+      setJsonStatus(
+        error instanceof Error
+          ? "Invalid JSON: " + error.message
+          : "Invalid JSON input",
+      );
+    }
+  }
+
+  function escapeJsonText(): void {
+    setEscapeOutput(JSON.stringify(escapeInput).slice(1, -1));
+    setEscapeStatus("Text escaped for a JSON string");
+  }
+
+  function unescapeJsonText(): void {
+    try {
+      const parsed: unknown = JSON.parse(escapeInput);
+      if (typeof parsed === "string") {
+        setEscapeOutput(parsed);
+        setEscapeStatus("JSON string unescaped");
+        return;
+      }
+    } catch {
+      // Try parsing the input as the contents of a quoted JSON string below.
+    }
+
+    try {
+      setEscapeOutput(JSON.parse('"' + escapeInput + '"') as string);
+      setEscapeStatus("JSON string unescaped");
+    } catch {
+      setEscapeOutput("");
+      setEscapeStatus("Invalid escaped JSON string");
+    }
   }
 
   function downloadLogs(): void {
@@ -355,6 +663,11 @@ export default function App() {
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>): void {
     void openFile(event.currentTarget.files?.[0]);
+    event.currentTarget.value = "";
+  }
+
+  function handleHarFileChange(event: ChangeEvent<HTMLInputElement>): void {
+    void openHarFile(event.currentTarget.files?.[0]);
     event.currentTarget.value = "";
   }
 
@@ -402,12 +715,36 @@ export default function App() {
     { id: "debug", label: "Debug", count: counts.debug },
   ];
 
+  const toolHeading: Record<ToolTab, { title: string; description: string }> = {
+    console: {
+      title: "Make sense of your logs.",
+      description: "A clearer view of what’s happening under the hood.",
+    },
+    formatter: {
+      title: "Format JSON with confidence.",
+      description: "Validate, pretty-print, or minify JSON in your browser.",
+    },
+    escape: {
+      title: "Escape or unescape JSON text.",
+      description:
+        "Prepare strings for JSON or turn escaped text back into readable content.",
+    },
+    har: {
+      title: "Inspect every network request.",
+      description:
+        "Explore request and response data from a browser network capture.",
+    },
+  };
+
   const logViewStyle = {
     "--log-font-size": fontSize + "px",
   } as CSSProperties;
+  const toolFontStyle = {
+    "--tool-font-size": fontSize + "px",
+  } as CSSProperties;
 
   return (
-    <div className="shell" data-theme={theme}>
+    <div className="shell" data-theme={theme} style={toolFontStyle}>
       <aside className="side">
         <div className="brand">
           <span className="brandicon">
@@ -416,10 +753,16 @@ export default function App() {
           logscope<span className="blue">.</span>
         </div>
 
-        <div className="sidecap filecap">LOG FILE</div>
+        <div className="sidecap filecap">
+          {activeTool === "har" ? "HAR CAPTURE" : "LOG FILE"}
+        </div>
         <div className="filelink active">
           <Icon name="file" size={15} />
-          <span>{file.name || "No file loaded"}</span>
+          <span>
+            {activeTool === "har"
+              ? harFileName || "No HAR file loaded"
+              : file.name || "No file loaded"}
+          </span>
           <i />
         </div>
         <button
@@ -441,7 +784,11 @@ export default function App() {
       <main>
         <header>
           <div className="crumb">
-            <b>{file.name || "Log viewer"}</b>
+            <b>
+              {activeTool === "har"
+                ? harFileName || "HAR inspector"
+                : file.name || "Log viewer"}
+            </b>
           </div>
           <section>
             <small>
@@ -472,256 +819,841 @@ export default function App() {
           </section>
         </header>
 
+        <div className="tool-tabs" role="tablist" aria-label="Logscope tools">
+          <button
+            id="tab-console"
+            className={
+              activeTool === "console" ? "tool-tab active" : "tool-tab"
+            }
+            role="tab"
+            aria-selected={activeTool === "console"}
+            aria-controls="panel-console"
+            onClick={() => setActiveTool("console")}
+            type="button"
+          >
+            <span className="tool-tab-icon">&gt;_</span>
+            Console log
+          </button>
+          <button
+            id="tab-formatter"
+            className={
+              activeTool === "formatter" ? "tool-tab active" : "tool-tab"
+            }
+            role="tab"
+            aria-selected={activeTool === "formatter"}
+            aria-controls="panel-formatter"
+            onClick={() => setActiveTool("formatter")}
+            type="button"
+          >
+            <span className="tool-tab-icon">{"{ }"}</span>
+            JSON formatter
+          </button>
+          <button
+            id="tab-escape"
+            className={activeTool === "escape" ? "tool-tab active" : "tool-tab"}
+            role="tab"
+            aria-selected={activeTool === "escape"}
+            aria-controls="panel-escape"
+            onClick={() => setActiveTool("escape")}
+            type="button"
+          >
+            <span className="tool-tab-icon">\\</span>
+            Escape / unescape JSON
+          </button>
+          <button
+            id="tab-har"
+            className={activeTool === "har" ? "tool-tab active" : "tool-tab"}
+            role="tab"
+            aria-selected={activeTool === "har"}
+            aria-controls="panel-har"
+            onClick={() => setActiveTool("har")}
+            type="button"
+          >
+            <span className="tool-tab-icon">⇄</span>
+            HAR inspector
+          </button>
+        </div>
+
         <div className="content">
           <div className="heading">
             <div>
               <label>
-                LOG EXPLORER <i />
+                {activeTool === "har" ? "NETWORK INSPECTOR" : "LOG EXPLORER"}{" "}
+                <i />
               </label>
-              <h1>Make sense of your logs.</h1>
-              <p>A clearer view of what’s happening under the hood.</p>
+              <h1>{toolHeading[activeTool].title}</h1>
+              <p>{toolHeading[activeTool].description}</p>
             </div>
-            <button
-              className="upload"
-              onClick={() => filePicker.current?.click()}
-              type="button"
-            >
-              <Icon name="upload" />
-              Upload log file
-            </button>
-          </div>
-
-          <div className="stats">
-            <article>
-              <label>
-                Total lines <i>≡</i>
-              </label>
-              <strong>
-                {lines.length.toLocaleString()}
-                <small> lines</small>
-              </strong>
-              <p>Across the current file</p>
-            </article>
-            <article>
-              <label>
-                Errors <i className="red">!</i>
-              </label>
-              <strong>
-                {counts.error}
-                <small> found</small>
-              </strong>
-              <p>Needs your attention</p>
-            </article>
-            <article>
-              <label>
-                Warnings <i className="amber">△</i>
-              </label>
-              <strong>
-                {counts.warn}
-                <small> found</small>
-              </strong>
-              <p>Worth taking a look</p>
-            </article>
-            <article>
-              <label>
-                File size{" "}
-                <i>
-                  <Icon name="file" size={15} />
-                </i>
-              </label>
-              <strong>{formatSize(file.size)}</strong>
-              <p>{file.name || "No file selected"}</p>
-            </article>
+            {(activeTool === "console" || activeTool === "har") && (
+              <button
+                className="upload"
+                onClick={() =>
+                  activeTool === "har"
+                    ? harPicker.current?.click()
+                    : filePicker.current?.click()
+                }
+                type="button"
+              >
+                <Icon name="upload" />
+                {activeTool === "har" ? "Open HAR file" : "Upload log file"}
+              </button>
+            )}
           </div>
 
           <section
-            className="viewer"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
+            id="panel-console"
+            className="tool-panel"
+            role="tabpanel"
+            aria-labelledby="tab-console"
+            hidden={activeTool !== "console"}
           >
-            <div className="vhead">
-              <div className="ftitle">
-                <i>
-                  <Icon name="file" />
-                </i>
-                <span>
-                  <b>{file.name || "Log preview"}</b>
-                  <small>
-                    {formatSize(file.size)} · {lines.length.toLocaleString()}{" "}
-                    lines
-                  </small>
-                </span>
-              </div>
-
-              <div className="tools">
-                <label className="search">
-                  <Icon name="search" size={15} />
-                  <input
-                    ref={searchInput}
-                    value={query}
-                    placeholder="Search logs..."
-                    onChange={handleSearchChange}
-                    aria-label="Search logs"
-                  />
-                  {query && (
-                    <button
-                      onClick={() => setQuery("")}
-                      aria-label="Clear"
-                      type="button"
-                    >
-                      <Icon name="close" size={13} />
-                    </button>
-                  )}
-                  <kbd>⌘ K</kbd>
+            <div className="stats">
+              <article>
+                <label>
+                  Total lines <i>≡</i>
                 </label>
-
-                <div
-                  className="font-size-control"
-                  role="group"
-                  aria-label="Console log font size"
-                >
-                  <button
-                    type="button"
-                    onClick={() => changeFontSize(-1)}
-                    disabled={fontSize <= 8}
-                    title="Decrease log text size"
-                    aria-label="Decrease log text size"
-                  >
-                    A−
-                  </button>
-                  <button
-                    type="button"
-                    className="font-size-reset"
-                    onClick={() => setFontSize(10)}
-                    title="Reset log text size"
-                    aria-label={
-                      "Reset log text size (currently " + fontSize + " pixels)"
-                    }
-                  >
-                    {fontSize}px
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => changeFontSize(1)}
-                    disabled={fontSize >= 20}
-                    title="Increase log text size"
-                    aria-label="Increase log text size"
-                  >
-                    A+
-                  </button>
-                </div>
-
-                <button
-                  className={wrap ? "chosen" : ""}
-                  onClick={() => setWrap((currentWrap) => !currentWrap)}
-                  title="Toggle wrapping"
-                  type="button"
-                >
-                  <Icon name="wrap" size={15} />
-                  Wrap
-                </button>
-                <button
-                  className="sq"
-                  onClick={() => void copyLogs()}
-                  title="Copy"
-                  aria-label="Copy"
-                  type="button"
-                >
-                  <Icon name="copy" size={15} />
-                </button>
-                <button
-                  className="sq"
-                  onClick={downloadLogs}
-                  title="Download"
-                  aria-label="Download"
-                  type="button"
-                >
-                  <Icon name="download" size={15} />
-                </button>
-              </div>
+                <strong>
+                  {lines.length.toLocaleString()}
+                  <small> lines</small>
+                </strong>
+                <p>Across the current file</p>
+              </article>
+              <article>
+                <label>
+                  Errors <i className="red">!</i>
+                </label>
+                <strong>
+                  {counts.error}
+                  <small> found</small>
+                </strong>
+                <p>Needs your attention</p>
+              </article>
+              <article>
+                <label>
+                  Warnings <i className="amber">△</i>
+                </label>
+                <strong>
+                  {counts.warn}
+                  <small> found</small>
+                </strong>
+                <p>Worth taking a look</p>
+              </article>
+              <article>
+                <label>
+                  File size{" "}
+                  <i>
+                    <Icon name="file" size={15} />
+                  </i>
+                </label>
+                <strong>{formatSize(file.size)}</strong>
+                <p>{file.name || "No file selected"}</p>
+              </article>
             </div>
 
-            <nav aria-label="Filter logs by severity">
-              {filters.map(({ id, label, count }) => (
-                <button
-                  key={id}
-                  className={filter === id ? "on " + id : id}
-                  onClick={() =>
-                    setFilter((currentFilter) =>
-                      currentFilter === id && id !== "all" ? "all" : id,
-                    )
-                  }
-                  type="button"
-                >
-                  {id !== "all" && <i />}
-                  {label}
-                  <small>{count}</small>
-                </button>
-              ))}
-            </nav>
-
-            <div
-              className={"logview" + (dragging ? " drag" : "")}
-              style={logViewStyle}
+            <section
+              className="viewer"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
-              <div className="rows">
-                {visibleLines.length ? (
-                  visibleLines.map(({ text, index, severity }) => (
-                    <div className={"row " + severity} key={index}>
-                      <span>{String(index + 1).padStart(3, "0")}</span>
-                      <i />
-                      <code
-                        className={wrap ? "wrap" : ""}
-                        dangerouslySetInnerHTML={{
-                          __html: ansiToHtml(text),
-                        }}
-                      />
+              <div className="vhead">
+                <div className="ftitle">
+                  <i>
+                    <Icon name="file" />
+                  </i>
+                  <span>
+                    <b>{file.name || "Log preview"}</b>
+                    <small>
+                      {formatSize(file.size)} · {lines.length.toLocaleString()}{" "}
+                      lines
+                    </small>
+                  </span>
+                </div>
+
+                <div className="tools">
+                  <label className="search">
+                    <Icon name="search" size={15} />
+                    <input
+                      ref={searchInput}
+                      value={query}
+                      placeholder="Search logs..."
+                      onChange={handleSearchChange}
+                      aria-label="Search logs"
+                    />
+                    {query && (
+                      <button
+                        onClick={() => setQuery("")}
+                        aria-label="Clear"
+                        type="button"
+                      >
+                        <Icon name="close" size={13} />
+                      </button>
+                    )}
+                    <kbd>⌘ K</kbd>
+                  </label>
+
+                  <FontSizeControl
+                    fontSize={fontSize}
+                    onChange={changeFontSize}
+                    onReset={() => setFontSize(10)}
+                    label="Console log font size"
+                  />
+
+                  <button
+                    className={wrap ? "chosen" : ""}
+                    onClick={() => setWrap((currentWrap) => !currentWrap)}
+                    title="Toggle wrapping"
+                    type="button"
+                  >
+                    <Icon name="wrap" size={15} />
+                    Wrap
+                  </button>
+                  <button
+                    className="sq"
+                    onClick={() => void copyLogs()}
+                    title="Copy"
+                    aria-label="Copy"
+                    type="button"
+                  >
+                    <Icon name="copy" size={15} />
+                  </button>
+                  <button
+                    className="sq"
+                    onClick={downloadLogs}
+                    title="Download"
+                    aria-label="Download"
+                    type="button"
+                  >
+                    <Icon name="download" size={15} />
+                  </button>
+                </div>
+              </div>
+
+              <nav aria-label="Filter logs by severity">
+                {filters.map(({ id, label, count }) => (
+                  <button
+                    key={id}
+                    className={filter === id ? "on " + id : id}
+                    onClick={() =>
+                      setFilter((currentFilter) =>
+                        currentFilter === id && id !== "all" ? "all" : id,
+                      )
+                    }
+                    type="button"
+                  >
+                    {id !== "all" && <i />}
+                    {label}
+                    <small>{count}</small>
+                  </button>
+                ))}
+              </nav>
+
+              <div
+                className={"logview" + (dragging ? " drag" : "")}
+                style={logViewStyle}
+              >
+                <div className="rows">
+                  {visibleLines.length ? (
+                    visibleLines.map(({ text, index, severity }) => (
+                      <div className={"row " + severity} key={index}>
+                        <span>{String(index + 1).padStart(3, "0")}</span>
+                        <i />
+                        <code
+                          className={wrap ? "wrap" : ""}
+                          dangerouslySetInnerHTML={{
+                            __html: ansiToHtml(text),
+                          }}
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="empty">
+                      <Icon name="search" size={22} />
+                      <b>No matching logs</b>
+                      <span>Try another search or level filter.</span>
+                      <button onClick={clearFilters} type="button">
+                        Clear filters
+                      </button>
                     </div>
-                  ))
-                ) : (
-                  <div className="empty">
-                    <Icon name="search" size={22} />
-                    <b>No matching logs</b>
-                    <span>Try another search or level filter.</span>
-                    <button onClick={clearFilters} type="button">
-                      Clear filters
-                    </button>
+                  )}
+                </div>
+                {dragging && (
+                  <div className="drop">
+                    <Icon name="upload" size={24} />
+                    <b>Drop your log file here</b>
+                    <span>Any text-based log format is welcome</span>
                   </div>
                 )}
               </div>
-              {dragging && (
-                <div className="drop">
-                  <Icon name="upload" size={24} />
-                  <b>Drop your log file here</b>
-                  <span>Any text-based log format is welcome</span>
-                </div>
-              )}
-            </div>
 
-            <footer>
-              <span>
-                <i />
-                Showing <b>{visibleLines.length.toLocaleString()}</b> of{" "}
-                {lines.length.toLocaleString()} lines
-              </span>
-              <small>
-                Drop any file to open <kbd>⌘ O</kbd>
-              </small>
-            </footer>
+              <footer>
+                <span>
+                  <i />
+                  Showing <b>{visibleLines.length.toLocaleString()}</b> of{" "}
+                  {lines.length.toLocaleString()} lines
+                </span>
+                <small>
+                  Drop any file to open <kbd>⌘ O</kbd>
+                </small>
+              </footer>
+            </section>
+
+            {toast && (
+              <div className="toast" role="status">
+                {toast}
+              </div>
+            )}
+
+            <div className="privacy">
+              <span>⌑</span>
+              Your logs are processed locally in your browser and are never
+              uploaded to a server.
+            </div>
           </section>
 
-          {toast && (
-            <div className="toast" role="status">
-              {toast}
+          <section
+            id="panel-formatter"
+            className="tool-panel utility-panel"
+            role="tabpanel"
+            aria-labelledby="tab-formatter"
+            hidden={activeTool !== "formatter"}
+          >
+            <div className="utility-toolbar">
+              <div>
+                <strong>JSON formatter</strong>
+                <span>Format or minify a JSON document</span>
+              </div>
+              <div className="utility-actions">
+                <FontSizeControl
+                  fontSize={fontSize}
+                  onChange={changeFontSize}
+                  onReset={() => setFontSize(10)}
+                  label="JSON formatter font size"
+                />
+                <button
+                  className="secondary-action"
+                  onClick={() => {
+                    setJsonInput("");
+                    setJsonOutput("");
+                    setJsonStatus("");
+                  }}
+                  type="button"
+                >
+                  Clear
+                </button>
+                <button
+                  className="secondary-action"
+                  onClick={() =>
+                    void copyText(jsonOutput, "Formatted JSON copied")
+                  }
+                  type="button"
+                  disabled={!jsonOutput}
+                >
+                  Copy output
+                </button>
+                <button
+                  className="secondary-action"
+                  onClick={() => formatJson(true)}
+                  type="button"
+                >
+                  Minify
+                </button>
+                <button
+                  className="primary-action"
+                  onClick={() => formatJson()}
+                  type="button"
+                >
+                  Format JSON
+                </button>
+              </div>
             </div>
-          )}
+            <div className="editor-grid">
+              <label className="editor-card">
+                <span className="editor-label">
+                  <b>Input JSON</b>
+                  <small>{jsonInput.length.toLocaleString()} characters</small>
+                </span>
+                <textarea
+                  value={jsonInput}
+                  onChange={(event) => {
+                    setJsonInput(event.currentTarget.value);
+                    setJsonOutput("");
+                    setJsonStatus("");
+                  }}
+                  placeholder={
+                    'Paste JSON here, for example:\n{ "service": "api", "enabled": true }'
+                  }
+                  spellCheck={false}
+                />
+              </label>
+              <label className="editor-card">
+                <span className="editor-label">
+                  <b>Result</b>
+                  <small>{jsonOutput.length.toLocaleString()} characters</small>
+                </span>
+                <textarea
+                  value={jsonOutput}
+                  readOnly
+                  placeholder="Formatted JSON will appear here"
+                  spellCheck={false}
+                />
+              </label>
+            </div>
+            <div
+              className={
+                jsonStatus.startsWith("Invalid")
+                  ? "utility-status error"
+                  : "utility-status"
+              }
+              role="status"
+            >
+              {jsonStatus || "JSON is parsed locally in your browser."}
+            </div>
+          </section>
 
-          <div className="privacy">
-            <span>⌑</span>
-            Your logs are processed locally in your browser and are never
-            uploaded to a server.
-          </div>
+          <section
+            id="panel-escape"
+            className="tool-panel utility-panel"
+            role="tabpanel"
+            aria-labelledby="tab-escape"
+            hidden={activeTool !== "escape"}
+          >
+            <div className="utility-toolbar">
+              <div>
+                <strong>Escape / unescape JSON</strong>
+                <span>Convert quotes, line breaks, tabs, and backslashes</span>
+              </div>
+              <div className="utility-actions">
+                <FontSizeControl
+                  fontSize={fontSize}
+                  onChange={changeFontSize}
+                  onReset={() => setFontSize(10)}
+                  label="Escape and unescape font size"
+                />
+                <button
+                  className="secondary-action"
+                  onClick={() => {
+                    setEscapeInput("");
+                    setEscapeOutput("");
+                    setEscapeStatus("");
+                  }}
+                  type="button"
+                >
+                  Clear
+                </button>
+                <button
+                  className="secondary-action"
+                  onClick={() => void copyText(escapeOutput, "Result copied")}
+                  type="button"
+                  disabled={!escapeOutput}
+                >
+                  Copy output
+                </button>
+                <button
+                  className="secondary-action"
+                  onClick={unescapeJsonText}
+                  type="button"
+                >
+                  Unescape
+                </button>
+                <button
+                  className="primary-action"
+                  onClick={escapeJsonText}
+                  type="button"
+                >
+                  Escape text
+                </button>
+              </div>
+            </div>
+            <div className="editor-grid">
+              <label className="editor-card">
+                <span className="editor-label">
+                  <b>Input text</b>
+                  <small>
+                    {escapeInput.length.toLocaleString()} characters
+                  </small>
+                </span>
+                <textarea
+                  value={escapeInput}
+                  onChange={(event) => {
+                    setEscapeInput(event.currentTarget.value);
+                    setEscapeOutput("");
+                    setEscapeStatus("");
+                  }}
+                  placeholder="Paste text or an escaped JSON string here"
+                  spellCheck={false}
+                />
+              </label>
+              <label className="editor-card">
+                <span className="editor-label">
+                  <b>Result</b>
+                  <small>
+                    {escapeOutput.length.toLocaleString()} characters
+                  </small>
+                </span>
+                <textarea
+                  value={escapeOutput}
+                  readOnly
+                  placeholder="Escaped or unescaped text will appear here"
+                  spellCheck={false}
+                />
+              </label>
+            </div>
+            <div
+              className={
+                escapeStatus.startsWith("Invalid")
+                  ? "utility-status error"
+                  : "utility-status"
+              }
+              role="status"
+            >
+              {escapeStatus ||
+                "Escape produces JSON-safe string contents. Unescape accepts quoted JSON strings or escaped string contents."}
+            </div>
+          </section>
+
+          <section
+            id="panel-har"
+            className="tool-panel har-panel"
+            role="tabpanel"
+            aria-labelledby="tab-har"
+            hidden={activeTool !== "har"}
+          >
+            {harEntries.length === 0 ? (
+              <div className="har-empty">
+                <span className="har-empty-icon">⇄</span>
+                <h2>Inspect a HAR capture</h2>
+                <p>
+                  Open a .har file exported from your browser’s Network panel to
+                  inspect requests, responses, headers, payloads, and timings.
+                </p>
+                <button
+                  className="primary-action"
+                  onClick={() => harPicker.current?.click()}
+                  type="button"
+                >
+                  <Icon name="upload" />
+                  Choose HAR file
+                </button>
+                {harStatus && (
+                  <div className="utility-status error" role="status">
+                    {harStatus}
+                  </div>
+                )}
+                <small>
+                  HAR contents are read locally and stay on your device.
+                </small>
+              </div>
+            ) : (
+              <>
+                <div className="har-summary">
+                  <article>
+                    <label>Requests</label>
+                    <strong>{harEntries.length.toLocaleString()}</strong>
+                  </article>
+                  <article>
+                    <label>Errors</label>
+                    <strong className={harErrorCount ? "har-error" : ""}>
+                      {harErrorCount.toLocaleString()}
+                    </strong>
+                  </article>
+                  <article>
+                    <label>Transferred</label>
+                    <strong>{formatSize(harTransferredBytes)}</strong>
+                  </article>
+                  <article>
+                    <label>Total duration</label>
+                    <strong>{formatDuration(harTotalDuration)}</strong>
+                  </article>
+                </div>
+                <div className="har-toolbar">
+                  <div className="har-file-label">
+                    <b>{harFileName}</b>
+                    <span>{filteredHarEntries.length} matching requests</span>
+                  </div>
+                  <label className="har-search">
+                    <Icon name="search" size={15} />
+                    <input
+                      value={harQuery}
+                      onChange={(event) =>
+                        setHarQuery(event.currentTarget.value)
+                      }
+                      placeholder="Filter by URL, method, status..."
+                      aria-label="Filter HAR requests"
+                    />
+                  </label>
+                </div>
+                <div className="har-workspace">
+                  <div className="har-request-list" aria-label="HAR requests">
+                    {filteredHarEntries.length ? (
+                      filteredHarEntries.map(({ entry, index }) => {
+                        let endpoint = entry.request.url;
+                        try {
+                          const url = new URL(entry.request.url);
+                          endpoint = url.pathname + url.search;
+                        } catch {
+                          // Keep the URL as captured if it cannot be parsed.
+                        }
+                        const size =
+                          entry.response.content?.size ??
+                          entry.response.bodySize ??
+                          0;
+                        return (
+                          <button
+                            className={
+                              "har-request" +
+                              (selectedHarIndex === index ? " selected" : "")
+                            }
+                            key={`${index}-${entry.request.url}`}
+                            onClick={() => {
+                              setSelectedHarIndex(index);
+                              setHarDetailTab("overview");
+                            }}
+                            type="button"
+                          >
+                            <div className="har-request-topline">
+                              <b className="har-method">
+                                {entry.request.method}
+                              </b>
+                              <b
+                                className={
+                                  "har-status-code" +
+                                  (entry.response.status >= 400
+                                    ? " bad"
+                                    : entry.response.status >= 300
+                                      ? " redirect"
+                                      : "")
+                                }
+                              >
+                                {entry.response.status}
+                              </b>
+                            </div>
+                            <span
+                              className="har-endpoint"
+                              title={entry.request.url}
+                            >
+                              {endpoint}
+                            </span>
+                            <div className="har-request-meta">
+                              <span>
+                                {entry.response.content?.mimeType ||
+                                  "unknown type"}
+                              </span>
+                              <span>{formatSize(size)}</span>
+                              <span>{formatDuration(entry.time ?? 0)}</span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="har-no-requests">
+                        No matching requests.
+                      </div>
+                    )}
+                  </div>
+                  {selectedHarEntry ? (
+                    <div className="har-detail">
+                      <div className="har-detail-title">
+                        <div>
+                          <span className="har-method large">
+                            {selectedHarEntry.request.method}
+                          </span>
+                          <h2 title={selectedHarEntry.request.url}>
+                            {selectedHarEntry.request.url}
+                          </h2>
+                        </div>
+                        <span
+                          className={
+                            "har-status-pill" +
+                            (selectedHarEntry.response.status >= 400
+                              ? " bad"
+                              : selectedHarEntry.response.status >= 300
+                                ? " redirect"
+                                : "")
+                          }
+                        >
+                          {selectedHarEntry.response.status}{" "}
+                          {selectedHarEntry.response.statusText}
+                        </span>
+                      </div>
+                      <nav
+                        className="har-detail-tabs"
+                        aria-label="Request details"
+                      >
+                        {(
+                          [
+                            "overview",
+                            "request",
+                            "response",
+                            "timing",
+                          ] as HarDetailTab[]
+                        ).map((tab) => (
+                          <button
+                            className={harDetailTab === tab ? "active" : ""}
+                            key={tab}
+                            onClick={() => setHarDetailTab(tab)}
+                            type="button"
+                          >
+                            {tab[0].toUpperCase() + tab.slice(1)}
+                          </button>
+                        ))}
+                      </nav>
+                      <div className="har-detail-content">
+                        {harDetailTab === "overview" && (
+                          <>
+                            <h3>General</h3>
+                            <dl className="har-kv">
+                              <dt>Request URL</dt>
+                              <dd>{selectedHarEntry.request.url}</dd>
+                              <dt>Request method</dt>
+                              <dd>{selectedHarEntry.request.method}</dd>
+                              <dt>Status code</dt>
+                              <dd>
+                                {selectedHarEntry.response.status}{" "}
+                                {selectedHarEntry.response.statusText}
+                              </dd>
+                              <dt>HTTP version</dt>
+                              <dd>
+                                {selectedHarEntry.response.httpVersion || "—"}
+                              </dd>
+                              <dt>Started</dt>
+                              <dd>
+                                {selectedHarEntry.startedDateTime
+                                  ? new Date(
+                                      selectedHarEntry.startedDateTime,
+                                    ).toLocaleString()
+                                  : "—"}
+                              </dd>
+                              <dt>Resource type</dt>
+                              <dd>
+                                {selectedHarEntry._resourceType ||
+                                  selectedHarEntry.response.content?.mimeType ||
+                                  "—"}
+                              </dd>
+                              <dt>Remote address</dt>
+                              <dd>{selectedHarEntry.serverIPAddress || "—"}</dd>
+                              <dt>Duration</dt>
+                              <dd>
+                                {formatDuration(selectedHarEntry.time ?? 0)}
+                              </dd>
+                            </dl>
+                          </>
+                        )}
+                        {harDetailTab === "request" && (
+                          <>
+                            <HarHeaders
+                              title="Request headers"
+                              headers={selectedHarEntry.request.headers}
+                            />
+                            {(selectedHarEntry.request.queryString?.length ??
+                              0) > 0 && (
+                              <HarParams
+                                title="Query parameters"
+                                params={
+                                  selectedHarEntry.request.queryString ?? []
+                                }
+                              />
+                            )}
+                            {selectedHarEntry.request.postData?.text && (
+                              <>
+                                <h3>
+                                  Request payload{" "}
+                                  <span>
+                                    {selectedHarEntry.request.postData.mimeType}
+                                  </span>
+                                </h3>
+                                <pre className="har-body">
+                                  {prettifyHarBody(
+                                    selectedHarEntry.request.postData.text,
+                                    selectedHarEntry.request.postData.mimeType,
+                                  )}
+                                </pre>
+                              </>
+                            )}
+                          </>
+                        )}
+                        {harDetailTab === "response" && (
+                          <>
+                            <HarHeaders
+                              title="Response headers"
+                              headers={selectedHarEntry.response.headers}
+                            />
+                            <h3>
+                              Response body{" "}
+                              <span>
+                                {selectedHarEntry.response.content?.mimeType ||
+                                  "unknown type"}
+                              </span>
+                            </h3>
+                            {selectedHarEntry.response.content?.text ? (
+                              <pre className="har-body">
+                                {selectedHarEntry.response.content.encoding ===
+                                "base64"
+                                  ? `[Base64 encoded content]\n${selectedHarEntry.response.content.text}`
+                                  : prettifyHarBody(
+                                      selectedHarEntry.response.content.text,
+                                      selectedHarEntry.response.content
+                                        .mimeType,
+                                    )}
+                              </pre>
+                            ) : (
+                              <p className="har-muted">
+                                No response body was included in this capture.
+                              </p>
+                            )}
+                          </>
+                        )}
+                        {harDetailTab === "timing" && (
+                          <>
+                            <h3>
+                              Request timing{" "}
+                              <span>
+                                {formatDuration(selectedHarEntry.time ?? 0)}{" "}
+                                total
+                              </span>
+                            </h3>
+                            {Object.keys(selectedHarEntry.timings ?? {})
+                              .length ? (
+                              <div className="har-timings">
+                                {Object.entries(
+                                  selectedHarEntry.timings ?? {},
+                                ).map(([label, duration]) => (
+                                  <div className="har-timing" key={label}>
+                                    <span>{label}</span>
+                                    <div>
+                                      <i
+                                        style={{
+                                          width: `${Math.max(2, Math.min(100, (duration / Math.max(selectedHarEntry.time ?? 1, 1)) * 100))}%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <b>
+                                      {duration < 0
+                                        ? "—"
+                                        : formatDuration(duration)}
+                                    </b>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="har-muted">
+                                Timing breakdown was not included in this
+                                capture.
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="har-detail-placeholder">
+                      Choose a request to inspect its details.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
         </div>
       </main>
 
@@ -730,6 +1662,13 @@ export default function App() {
         type="file"
         className="hidden"
         onChange={handleFileChange}
+      />
+      <input
+        ref={harPicker}
+        type="file"
+        accept=".har,application/json,.json"
+        className="hidden"
+        onChange={handleHarFileChange}
       />
     </div>
   );
