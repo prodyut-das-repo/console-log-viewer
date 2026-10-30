@@ -1,0 +1,172 @@
+.row {
+  font-size: var(--log-font-size, 10px);
+}
+.font-size-control {
+  height: 30px;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #e9ebef;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #fff;
+  color: #78808d;
+}
+.font-size-control button {
+  min-width: 29px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font:
+    500 10px "DM Sans",
+    sans-serif;
+}
+.font-size-control button:hover:not(:disabled) {
+  background: #f3f5ff;
+  color: #506fd6;
+}
+.font-size-control button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.font-size-control .font-size-reset {
+  min-width: 38px;
+  border-left: 1px solid #e9ebef;
+  border-right: 1px solid #e9ebef;
+  color: #596273;
+  font:
+    9px "DM Mono",
+    monospace;
+}
+[data-theme="dark"] .font-size-control {
+  background: #1c2532;
+  border-color: #354153;
+  color: #aab5c4;
+}
+[data-theme="dark"] .font-size-control button:hover:not(:disabled) {
+  background: #273451;
+  color: #bdcaff;
+}
+[data-theme="dark"] .font-size-control .font-size-reset {
+  border-color: #354153;
+  color: #dce4ef;
+}
+
+/* Give the log viewer more of the available viewport. */
+.side {
+  width: 210px;
+  padding: 20px 12px 12px;
+}
+main {
+  margin-left: 210px;
+}
+header {
+  height: 55px;
+  padding: 0 24px;
+}
+.content {
+  max-width: none;
+  padding: 24px 24px 18px;
+}
+.heading {
+  margin-bottom: 16px;
+}
+.heading h1 {
+  font-size: 23px;
+  margin-top: 8px;
+}
+.stats {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat,
+article {
+  height: 92px;
+  padding: 10px 13px;
+}
+.stat > strong,
+article > strong {
+  margin-top: 5px;
+}
+.stat p,
+article p {
+  margin-top: 2px;
+}
+.vhead {
+  height: 58px;
+}
+nav {
+  height: 39px;
+}
+.logview {
+  height: calc(100dvh - 420px);
+  min-height: 320px;
+  max-height: none;
+}
+.viewerfoot {
+  height: 33px;
+}
+.privacy {
+  margin-top: 10px;
+}
+@media (max-width: 1100px) {
+  .side {
+    width: 190px;
+  }
+  main {
+    margin-left: 190px;
+  }
+  header {
+    padding: 0 18px;
+  }
+  .content {
+    padding: 20px 18px 14px;
+  }
+  .vhead {
+    height: auto;
+    min-height: 58px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 9px 12px;
+  }
+  .tools {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .search {
+    flex: 1;
+    min-width: 140px;
+  }
+  .logview {
+    height: calc(100dvh - 405px);
+    min-height: 280px;
+  }
+}
+@media (max-height: 740px) {
+  .content {
+    padding-top: 16px;
+  }
+  .heading {
+    margin-bottom: 11px;
+  }
+  .heading h1 {
+    margin-top: 5px;
+    font-size: 21px;
+  }
+  .stats {
+    margin-bottom: 10px;
+  }
+  .stat,
+  article {
+    height: 82px;
+    padding: 8px 11px;
+  }
+  .logview {
+    height: calc(100dvh - 355px);
+    min-height: 250px;
+  }
+  .privacy {
+    margin-top: 7px;
+  }
+}

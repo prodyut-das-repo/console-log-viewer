@@ -1,0 +1,261 @@
+.side {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 248px;
+  padding: 24px 16px 14px;
+  background: #fff;
+  border-right: 1px solid #eceef1;
+  display: flex;
+  flex-direction: column;
+  z-index: 2;
+}
+.brand {
+  height: 31px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 7px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+.brandicon {
+  height: 29px;
+  width: 29px;
+  border-radius: 9px;
+  color: #fff;
+  background: #4f71e5;
+  display: grid;
+  place-items: center;
+}
+.blue {
+  color: #4f71e5;
+  margin-left: -8px;
+}
+.brand small {
+  margin-left: 3px;
+  border: 1px solid #e9eaf0;
+  border-radius: 4px;
+  padding: 2px 4px;
+  color: #999dab;
+  letter-spacing: 0.6px;
+  font-size: 8px;
+}
+.sidecap {
+  margin: 39px 0 9px 7px;
+  color: #a0a5ae;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+}
+.workspace {
+  height: 43px;
+  border: 1px solid #e8eaf0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #303643;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+}
+.workspace i {
+  height: 24px;
+  width: 24px;
+  border-radius: 6px;
+  background: #f0effe;
+  color: #7568cd;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+}
+.workspace span {
+  margin-left: auto;
+  color: #989da7;
+}
+.filecap {
+  margin-top: 35px;
+  display: flex;
+  justify-content: space-between;
+  padding-right: 7px;
+}
+.filecap span {
+  font-size: 16px;
+  line-height: 8px;
+}
+.file-list {
+  display: flex;
+  min-height: 0;
+  max-height: 58vh;
+  flex-direction: column;
+  gap: 3px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.filelink {
+  width: 100%;
+  flex: 0 0 37px;
+  height: 37px;
+  border: 0;
+  background: transparent;
+  color: #9298a2;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 9px;
+  text-align: left;
+  font-size: 11px;
+}
+.filelink > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filelink.active {
+  color: #3d5fc7;
+  background: #f1f4ff;
+  font-weight: 600;
+}
+.filelink.active > span {
+  min-width: 0;
+}
+.filelink.active > i:last-child {
+  height: 5px;
+  width: 5px;
+  border-radius: 50%;
+  background: #5679e5;
+}
+.bottom {
+  margin-top: auto;
+}
+.local {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #e9ecef;
+  background: #fafbfc;
+  padding: 11px 10px;
+  border-radius: 7px;
+  color: #848b96;
+  font-size: 10px;
+}
+.local i,
+header section small i,
+footer > span > i {
+  height: 6px;
+  width: 6px;
+  border-radius: 50%;
+  background: #53b188;
+}
+.user {
+  margin-top: 13px;
+  border-top: 1px solid #eff0f2;
+  padding: 13px 5px 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #7f8590;
+}
+.user > b {
+  height: 28px;
+  width: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #e9edf8;
+  color: #5a6d9e;
+  font-size: 9px;
+}
+.user > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.user strong {
+  font-size: 10px;
+  color: #353b46;
+  font-weight: 600;
+}
+.user small {
+  font-size: 9px;
+  color: #a1a5ad;
+}
+main {
+  margin-left: 248px;
+  min-height: 100vh;
+}
+header {
+  height: 61px;
+  border-bottom: 1px solid #eaecf0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 38px;
+  color: #9a9faa;
+  font-size: 10px;
+}
+header > div {
+  display: flex;
+  gap: 11px;
+}
+header > div span {
+  color: #c1c4cb;
+}
+header > div b {
+  font-weight: 600;
+  color: #4a505b;
+}
+header section {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+header section small {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #9ca2ac;
+  font-size: 9px;
+}
+header section small i {
+  height: 5px;
+  width: 5px;
+}
+.language-select {
+  height: 29px;
+  max-width: 128px;
+  padding: 0 8px;
+  border: 1px solid #e3e7ed;
+  border-radius: 5px;
+  outline: none;
+  background: #fff;
+  color: #5c6573;
+  font-size: 10px;
+}
+.language-select:focus {
+  border-color: #8198eb;
+  box-shadow: 0 0 0 2px #5777df1c;
+}
+header section button {
+  border: 0;
+  background: none;
+  color: #9299a5;
+}
+header section > b {
+  height: 27px;
+  width: 27px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #e9edf8;
+  color: #5a6d9e;
+  font-size: 9px;
+}
