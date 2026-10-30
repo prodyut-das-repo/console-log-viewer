@@ -25,9 +25,12 @@ type Theme = "light" | "dark";
 type ToolTab = "console" | "formatter" | "escape" | "har";
 
 interface LogFile {
+  id: string;
   name: string;
   size: number;
   text: string;
+  filter: LogFilter;
+  query: string;
 }
 
 interface LogEntry {
@@ -601,13 +604,17 @@ function getInitialFontSize(): number {
 }
 
 export default function App() {
-  const [file, setFile] = useState<LogFile>({
-    name: "production-api.log",
-    size: new Blob([demoLogs]).size,
-    text: demoLogs,
-  });
-  const [filter, setFilter] = useState<LogFilter>("all");
-  const [query, setQuery] = useState("");
+  const [logFiles, setLogFiles] = useState<LogFile[]>([
+    {
+      id: "demo",
+      name: "production-api.log",
+      size: new Blob([demoLogs]).size,
+      text: demoLogs,
+      filter: "all",
+      query: "",
+    },
+  ]);
+  const [activeLogId, setActiveLogId] = useState("demo");
   const [wrap, setWrap] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [toast, setToast] = useState("");
@@ -637,6 +644,30 @@ export default function App() {
   const harPicker = useRef<HTMLInputElement>(null);
   const harComparePicker = useRef<HTMLInputElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+
+  const file = logFiles.find(({ id }) => id === activeLogId) ?? logFiles[0];
+  const filter = file.filter;
+  const query = file.query;
+
+  function updateActiveLog(update: Partial<LogFile>): void {
+    setLogFiles((currentFiles) =>
+      currentFiles.map((currentFile) =>
+        currentFile.id === activeLogId
+          ? { ...currentFile, ...update }
+          : currentFile,
+      ),
+    );
+  }
+
+  function setFilter(next: LogFilter | ((current: LogFilter) => LogFilter)) {
+    updateActiveLog({
+      filter: typeof next === "function" ? next(file.filter) : next,
+    });
+  }
+
+  function setQuery(next: string): void {
+    updateActiveLog({ query: next });
+  }
 
   const lines = useMemo(
     () => file.text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n"),
@@ -756,13 +787,18 @@ export default function App() {
 
     try {
       const text = await selectedFile.text();
-      setFile({
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const nextFile: LogFile = {
+        id,
         name: selectedFile.name || "untitled.log",
         size: selectedFile.size,
         text,
-      });
-      setFilter("all");
-      setQuery("");
+        filter: "all",
+        query: "",
+      };
+      setLogFiles((currentFiles) => [...currentFiles, nextFile]);
+      setActiveLogId(id);
+      setActiveTool("console");
       setToast("");
     } catch {
       setToast("This file could not be read. Try another file.");
@@ -1003,17 +1039,26 @@ export default function App() {
           logscope<span className="blue">.</span>
         </div>
 
-        <div className="sidecap filecap">
-          {activeTool === "har" ? "HAR CAPTURE" : "LOG FILE"}
-        </div>
-        <div className="filelink active">
-          <Icon name="file" size={15} />
-          <span>
-            {activeTool === "har"
-              ? harFileName || "No HAR file loaded"
-              : file.name || "No file loaded"}
-          </span>
-          <i />
+        <div className="sidecap filecap">LOG FILES</div>
+        <div className="file-list" aria-label="Loaded log files">
+          {logFiles.map((logFile) => (
+            <button
+              className={
+                activeLogId === logFile.id ? "filelink active" : "filelink"
+              }
+              key={logFile.id}
+              onClick={() => {
+                setActiveLogId(logFile.id);
+                setActiveTool("console");
+              }}
+              title={logFile.name}
+              type="button"
+            >
+              <Icon name="file" size={15} />
+              <span>{logFile.name}</span>
+              {activeLogId === logFile.id && <i />}
+            </button>
+          ))}
         </div>
         <button
           className="filelink"

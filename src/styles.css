@@ -114,7 +114,18 @@ button {
   font-size: 16px;
   line-height: 8px;
 }
+.file-list {
+  display: flex;
+  min-height: 0;
+  max-height: 58vh;
+  flex-direction: column;
+  gap: 3px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
 .filelink {
+  width: 100%;
+  flex: 0 0 37px;
   height: 37px;
   border: 0;
   background: transparent;
@@ -127,16 +138,20 @@ button {
   text-align: left;
   font-size: 11px;
 }
+.filelink > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .filelink.active {
   color: #3d5fc7;
   background: #f1f4ff;
   font-weight: 600;
 }
 .filelink.active > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
+  min-width: 0;
 }
 .filelink.active > i:last-child {
   height: 5px;
