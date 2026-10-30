@@ -2,6 +2,10 @@
 
 A browser-based React log viewer. Files are read locally in the browser; the app does not send their contents to a server.
 
+## Live demo
+
+[Try Logscope](https://logscope.netlify.app/)
+
 ## Run locally
 
 ```sh
