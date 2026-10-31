@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { LogFile } from "../types";
 import { useClipboard } from "../providers/ClipboardProvider";
+import { isSupportedLogFile } from "../utils/fileTypes";
 
 type LogFilesState = {
   files: LogFile[];
@@ -62,6 +63,10 @@ export function useLogFiles() {
   }, []);
   const replaceFile = useCallback(
     async (id: string, selectedFile: File) => {
+      if (!(await isSupportedLogFile(selectedFile))) {
+        notify("This file could not be read. Try another file.");
+        return;
+      }
       try {
         const replacement = await readLogFile(selectedFile, id);
         setState((state) => ({
@@ -78,8 +83,17 @@ export function useLogFiles() {
   );
   const openFiles = useCallback(
     async (selectedFiles: File[]) => {
+      const checkedFiles = await Promise.all(
+        selectedFiles.map(async (file) => ({
+          file,
+          supported: await isSupportedLogFile(file),
+        })),
+      );
+      const supportedFiles = checkedFiles
+        .filter(({ supported }) => supported)
+        .map(({ file }) => file);
       const results = await Promise.allSettled(
-        selectedFiles.map((file) => readLogFile(file)),
+        supportedFiles.map((file) => readLogFile(file)),
       );
       const added = results.flatMap((result) =>
         result.status === "fulfilled" ? [result.value] : [],
@@ -90,7 +104,10 @@ export function useLogFiles() {
           activeId: added[added.length - 1].id,
         }));
       }
-      if (results.some((result) => result.status === "rejected"))
+      if (
+        supportedFiles.length !== selectedFiles.length ||
+        results.some((result) => result.status === "rejected")
+      )
         notify("This file could not be read. Try another file.");
       return added.length > 0;
     },
