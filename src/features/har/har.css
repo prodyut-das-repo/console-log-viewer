@@ -1051,3 +1051,124 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Keep the inspector panels within the shared viewport-height workspace. */
+.har-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.har-panel > .har-empty {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.har-panel > div:not([hidden]) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.har-panel .har-mode-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.har-panel .har-summary,
+.har-panel .har-toolbar,
+.har-panel .har-compare-header,
+.har-panel .har-compare-toolbar {
+  flex: 0 0 auto;
+}
+
+.har-panel .har-workspace,
+.har-panel .har-compare-workspace {
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  height: auto;
+}
+
+.har-panel .har-request-list,
+.har-panel .har-diff-list,
+.har-panel .har-detail,
+.har-panel .har-diff-detail {
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .har-panel .har-workspace,
+  .har-panel .har-compare-workspace {
+    grid-template-rows: minmax(112px, 34%) minmax(0, 1fr);
+  }
+
+  .har-panel .har-request-list,
+  .har-panel .har-diff-list {
+    min-height: 0;
+    max-height: none;
+  }
+
+  .har-panel .har-detail,
+  .har-panel .har-diff-detail {
+    min-height: 0;
+  }
+}
+
+/* One compact metrics band keeps the request list as the visual focus. */
+.har-panel .har-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--line);
+}
+
+.har-panel .har-summary article {
+  min-height: 62px;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+}
+
+.har-panel .har-summary article label {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.har-panel .har-summary article strong {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.har-panel .har-summary article strong.har-error {
+  color: var(--danger);
+}
+
+@media (max-width: 760px) {
+  .har-panel .har-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 8px;
+  }
+
+  .har-panel .har-summary article {
+    min-height: 58px;
+    padding: 7px 10px;
+  }
+
+  .har-panel .har-summary article strong {
+    font-size: 15px;
+  }
+}

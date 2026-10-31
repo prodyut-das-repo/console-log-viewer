@@ -18,7 +18,7 @@ interface Preferences {
 }
 const PreferencesContext = createContext<Preferences | null>(null);
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const defaultFontSize = useMediaQuery("(max-width: 760px)") ? 16 : 10;
+  const defaultFontSize = useMediaQuery("(max-width: 760px)") ? 16 : 12;
   const [theme, setTheme] = useStoredState<Theme>(
     "logscope-theme",
     "dark",

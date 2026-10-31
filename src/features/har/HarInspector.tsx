@@ -79,11 +79,11 @@ function HarInspector({
         </button>
       </div>
       {error && <StatusMessage message={error} error />}
-      <div hidden={mode !== "inspect"}>
+      <div className="har-mode-panel" hidden={mode !== "inspect"}>
         <HarCaptureView capture={capture} />
       </div>
       {comparison && (
-        <div hidden={mode !== "compare"}>
+        <div className="har-mode-panel" hidden={mode !== "compare"}>
           <HarComparison
             key={comparison.id}
             baseline={capture}
