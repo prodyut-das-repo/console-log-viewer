@@ -12,7 +12,6 @@ import ToolHeading from "./components/layout/ToolHeading";
 import ConsoleViewer from "./features/console/ConsoleViewer";
 import ConsoleEmptyState from "./features/console/ConsoleEmptyState";
 import RetryableTool from "./components/common/RetryableTool";
-import { LOG_FILE_ACCEPT } from "./utils/fileTypes";
 const loadJsonFormatter = () => import("./features/json/JsonFormatter");
 const loadJsonEscape = () => import("./features/json/JsonEscape");
 const loadHarWorkspace = () => import("./features/har/HarWorkspace");
@@ -211,7 +210,6 @@ export default function App() {
         ref={filePicker}
         type="file"
         multiple
-        accept={LOG_FILE_ACCEPT}
         className="hidden"
         onChange={(event) => {
           const files = Array.from(event.currentTarget.files ?? []);
@@ -222,7 +220,6 @@ export default function App() {
       <input
         ref={replacementPicker}
         type="file"
-        accept={LOG_FILE_ACCEPT}
         className="hidden"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
