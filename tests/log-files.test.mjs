@@ -34,6 +34,8 @@ const { require, cleanup } = compileModules([
   "features/console/LogStats.tsx",
   "features/console/useLogView.ts",
   "utils/download.ts",
+  "utils/fileLimits.ts",
+  "utils/fileTypes.ts",
   "utils/format.ts",
   "utils/log.ts",
 ]);
@@ -186,15 +188,14 @@ test("an unreadable replacement retains the existing file and its filters", asyn
     }),
   );
   const original = app.state.activeFile;
-  await act(async () => {
-    await app.state.replaceFile(original.id, {
-      name: "broken.log",
-      size: 1,
-      text: async () => {
-        throw new Error("Read failed");
-      },
-    });
+  const broken = new File(["x"], "broken.log");
+  const read = context.mock.method(broken, "text", async () => {
+    throw new Error("Read failed");
   });
+  await act(async () => {
+    await app.state.replaceFile(original.id, broken);
+  });
+  assert.equal(read.mock.callCount(), 1);
   assert.equal(app.state.activeFile, original);
   assert.deepEqual(app.state.files, [original]);
   assert.match(
@@ -212,27 +213,40 @@ test("a pending replacement keeps its target when selection changes and cannot r
     ]);
   });
   const [first, second] = app.state.files;
-  let finishRead;
-  const delayed = {
-    name: "replacement.log",
-    size: 4,
-    text: () =>
-      new Promise((resolve) => {
-        finishRead = resolve;
-      }),
-  };
-  const pending = app.state.replaceFile(first.id, delayed);
+  function delayedFile() {
+    let finishRead;
+    let signalStarted;
+    const started = new Promise((resolve) => {
+      signalStarted = resolve;
+    });
+    const file = new File(["WARN"], "replacement.log");
+    context.mock.method(
+      file,
+      "text",
+      () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+          signalStarted();
+        }),
+    );
+    return { file, started, finish: (text) => finishRead(text) };
+  }
+  const delayed = delayedFile();
+  const pending = app.state.replaceFile(first.id, delayed.file);
+  await delayed.started;
   await act(async () => app.state.setActiveId(second.id));
   await act(async () => {
-    finishRead("WARN");
+    delayed.finish("WARN");
     await pending;
   });
   assert.equal(app.state.files[0].name, "replacement.log");
   assert.equal(app.state.activeFile, second);
-  const removedPending = app.state.replaceFile(first.id, delayed);
+  const removedRead = delayedFile();
+  const removedPending = app.state.replaceFile(first.id, removedRead.file);
+  await removedRead.started;
   await act(async () => app.state.removeFile(first.id));
   await act(async () => {
-    finishRead("WARN");
+    removedRead.finish("WARN");
     await removedPending;
   });
   assert.deepEqual(app.state.files, [second]);
@@ -276,10 +290,11 @@ test("the sidebar appends, the heading replaces, and each file can be removed in
     await act(async () => {
       input.props.onChange({
         currentTarget: {
-          files: [{ name, size: 4, text: async () => "INFO" }],
+          files: [new File(["INFO"], name)],
           value: "selected",
         },
       });
+      await new Promise(setImmediate);
     });
   };
   await act(async () =>
@@ -391,7 +406,7 @@ test("log files start empty and uploading multiple files preserves each file's f
   }
 });
 
-test("an unreadable first upload keeps the empty state and reports the read error", async () => {
+test("an unreadable first upload keeps the empty state and reports the read error", async (context) => {
   let state;
   let renderer;
   function Harness() {
@@ -406,20 +421,14 @@ test("an unreadable first upload keeps the empty state and reports the read erro
     await act(async () => {
       renderer = create(providers(h(Harness)));
     });
-    await act(async () => {
-      assert.equal(
-        await state.openFiles([
-          {
-            name: "unreadable.log",
-            size: 1,
-            text: async () => {
-              throw new Error("Read failed");
-            },
-          },
-        ]),
-        false,
-      );
+    const broken = new File(["x"], "unreadable.log");
+    const read = context.mock.method(broken, "text", async () => {
+      throw new Error("Read failed");
     });
+    await act(async () => {
+      assert.equal(await state.openFiles([broken]), false);
+    });
+    assert.equal(read.mock.callCount(), 1);
     assert.deepEqual(state.files, []);
     assert.equal(state.activeFile, null);
     assert.equal(renderer.root.findAllByType("button").length, 0);

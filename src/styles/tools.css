@@ -79,10 +79,11 @@
 }
 .utility-actions {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 7px;
 }
-.utility-actions button {
+.utility-actions > button {
   min-height: 31px;
   padding: 0 10px;
   border: 1px solid #e3e7ed;
@@ -92,11 +93,11 @@
   font-size: 10px;
   font-weight: 500;
 }
-.utility-actions button:hover:not(:disabled) {
+.utility-actions > button:hover:not(:disabled) {
   background: #f4f6ff;
   color: #4966c6;
 }
-.utility-actions button:disabled {
+.utility-actions > button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }
@@ -211,12 +212,12 @@
 [data-theme="dark"] .utility-status.error {
   color: #ff8b82;
 }
-[data-theme="dark"] .utility-actions button {
+[data-theme="dark"] .utility-actions > button {
   border-color: #354153;
   background: #1c2532;
   color: #b4bfce;
 }
-[data-theme="dark"] .utility-actions button:hover:not(:disabled) {
+[data-theme="dark"] .utility-actions > button:hover:not(:disabled) {
   background: #273451;
   color: #c4d0ff;
 }

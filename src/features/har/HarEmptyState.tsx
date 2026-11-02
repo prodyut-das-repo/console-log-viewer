@@ -1,5 +1,6 @@
 import { useTranslation } from "../../i18n/LanguageProvider";
 import Icon from "../../components/common/Icon";
+import { FILE_SIZE_LIMIT_HINT } from "../../utils/fileLimits";
 export default function HarEmptyState({ onOpen }: { onOpen: () => void }) {
   const { t } = useTranslation();
   return (
@@ -16,6 +17,8 @@ export default function HarEmptyState({ onOpen }: { onOpen: () => void }) {
         {t("Choose HAR file")}
       </button>
       <small>
+        {t(FILE_SIZE_LIMIT_HINT)}
+        <br />
         {t("HAR contents are read locally and stay on your device.")}
       </small>
     </div>

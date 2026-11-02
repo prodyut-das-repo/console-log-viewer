@@ -17,6 +17,8 @@ To make a production bundle, run `npm run build`.
 
 Upload or drop plain-text log files such as `.log`, `.txt`, `.json`, `.jsonl`, `.csv`, and `.out`. The viewer keeps each line intact, highlights common severity terms, and renders ANSI terminal color codes. Search, severity filters, wrapping, clipboard copy, and downloading are available in the viewer. Files without ANSI codes or exported styling metadata cannot carry their original Chrome DevTools colors; severity colors are inferred from recognizable words.
 
+Console logs, HAR captures, and HAR comparison files have a **12 MB per-file limit** (12 × 1024 × 1024 bytes). Files larger than this are rejected before their contents are read. Existing files stay open, and valid files in a mixed upload are still imported. This limit reduces memory pressure; it is not a guarantee of responsiveness for every file or device.
+
 ## Mobile support
 
 The layout supports phones and tablets: the header menu opens the file list, editors stack vertically, and HAR request and comparison panels adapt to narrow screens. New phone sessions start with a readable 16px text size; saved text-size preferences are retained.

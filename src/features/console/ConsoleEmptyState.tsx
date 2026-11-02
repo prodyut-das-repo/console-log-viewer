@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { DragEvent } from "react";
 import { useTranslation } from "../../i18n/LanguageProvider";
 import Icon from "../../components/common/Icon";
+import { FILE_SIZE_LIMIT_HINT } from "../../utils/fileLimits";
 
 export default function ConsoleEmptyState({
   onOpen,
@@ -38,7 +39,9 @@ export default function ConsoleEmptyState({
         onDrop={handleDrop}
       >
         <div className="empty">
-          <Icon name="upload" size={28} />
+          <div className="empty-upload-icon" aria-hidden="true">
+            <Icon name="upload" size={30} />
+          </div>
           <b>{t("No file loaded")}</b>
           <span>{t("Drop your log file here")}</span>
           <button className="upload" onClick={onOpen} type="button">
@@ -46,6 +49,7 @@ export default function ConsoleEmptyState({
             {t("Upload log file")}
           </button>
           <small>{t("Any text-based log format is welcome")}</small>
+          <small>{t(FILE_SIZE_LIMIT_HINT)}</small>
         </div>
       </section>
       <div className="privacy">

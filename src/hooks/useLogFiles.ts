@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import type { LogFile } from "../types";
 import { useClipboard } from "../providers/ClipboardProvider";
 import { isSupportedLogFile } from "../utils/fileTypes";
+import { FILE_SIZE_LIMIT_ERROR, isFileTooLarge } from "../utils/fileLimits";
 
 type LogFilesState = {
   files: LogFile[];
@@ -63,6 +64,10 @@ export function useLogFiles() {
   }, []);
   const replaceFile = useCallback(
     async (id: string, selectedFile: File) => {
+      if (isFileTooLarge(selectedFile)) {
+        notify(FILE_SIZE_LIMIT_ERROR);
+        return;
+      }
       if (!(await isSupportedLogFile(selectedFile))) {
         notify("This file could not be read. Try another file.");
         return;
@@ -83,8 +88,9 @@ export function useLogFiles() {
   );
   const openFiles = useCallback(
     async (selectedFiles: File[]) => {
+      const withinLimit = selectedFiles.filter((file) => !isFileTooLarge(file));
       const checkedFiles = await Promise.all(
-        selectedFiles.map(async (file) => ({
+        withinLimit.map(async (file) => ({
           file,
           supported: await isSupportedLogFile(file),
         })),
@@ -104,11 +110,14 @@ export function useLogFiles() {
           activeId: added[added.length - 1].id,
         }));
       }
-      if (
-        supportedFiles.length !== selectedFiles.length ||
+      if (withinLimit.length !== selectedFiles.length) {
+        notify(FILE_SIZE_LIMIT_ERROR);
+      } else if (
+        supportedFiles.length !== withinLimit.length ||
         results.some((result) => result.status === "rejected")
-      )
+      ) {
         notify("This file could not be read. Try another file.");
+      }
       return added.length > 0;
     },
     [notify],

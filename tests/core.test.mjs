@@ -4,6 +4,7 @@ import { compileModules } from "./helpers/compile-modules.mjs";
 
 const { require, cleanup } = compileModules([
   "utils/format.ts",
+  "utils/fileLimits.ts",
   "utils/log.ts",
   "utils/json.ts",
   "utils/harValidation.ts",

@@ -4,6 +4,7 @@ import type { ChangeEvent } from "react";
 import type { HarCapture } from "../../types";
 import { useTranslation } from "../../i18n/LanguageProvider";
 import { readHarCapture } from "../../utils/har";
+import { FILE_SIZE_LIMIT_HINT } from "../../utils/fileLimits";
 import StatusMessage from "../../components/common/StatusMessage";
 import HarEmptyState from "./HarEmptyState";
 import HarCaptureView from "./HarCaptureView";
@@ -72,6 +73,7 @@ function HarInspector({
           className="har-compare-button"
           onClick={() => picker.current?.click()}
           type="button"
+          title={t(FILE_SIZE_LIMIT_HINT)}
         >
           {t(
             comparison ? "Replace comparison capture" : "Compare with capture",

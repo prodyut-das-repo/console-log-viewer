@@ -1,5 +1,8 @@
 import type { Messages } from "../types";
 const messages: Messages = {
+  "Maximum file size: 12 MB.": "ಫೈಲ್‌ನ ಗರಿಷ್ಠ ಗಾತ್ರ: 12 MB.",
+  "File exceeds the 12 MB limit. Choose a smaller file.":
+    "ಫೈಲ್ 12 MB ಮಿತಿಯನ್ನು ಮೀರಿದೆ. ಚಿಕ್ಕ ಫೈಲ್ ಆಯ್ಕೆಮಾಡಿ.",
   Files: "ಕಡತಗಳು",
   "Open file list": "ಕಡತಗಳ ಪಟ್ಟಿ ತೆರೆಯಿರಿ",
   "Close file list": "ಕಡತಗಳ ಪಟ್ಟಿ ಮುಚ್ಚಿ",

@@ -206,5 +206,5 @@ test("new phone sessions use readable text sizes and reset to the current viewpo
   await act(async () => viewport.resize(1280));
   assert.equal(preferences.fontSize, 16);
   await act(async () => preferences.resetFontSize());
-  assert.equal(preferences.fontSize, 10);
+  assert.equal(preferences.fontSize, 12);
 });

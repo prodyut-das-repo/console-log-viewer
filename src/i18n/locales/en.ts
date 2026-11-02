@@ -1,4 +1,7 @@
 const messages = {
+  "Maximum file size: 12 MB.": "Maximum file size: 12 MB.",
+  "File exceeds the 12 MB limit. Choose a smaller file.":
+    "File exceeds the 12 MB limit. Choose a smaller file.",
   Files: "Files",
   "Open file list": "Open file list",
   "Close file list": "Close file list",

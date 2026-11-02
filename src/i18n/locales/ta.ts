@@ -1,5 +1,8 @@
 import type { Messages } from "../types";
 const messages: Messages = {
+  "Maximum file size: 12 MB.": "அதிகபட்ச கோப்பு அளவு: 12 MB.",
+  "File exceeds the 12 MB limit. Choose a smaller file.":
+    "கோப்பு 12 MB வரம்பை மீறுகிறது. சிறிய கோப்பைத் தேர்ந்தெடுக்கவும்.",
   Files: "கோப்புகள்",
   "Open file list": "கோப்புப் பட்டியலைத் திறக்கவும்",
   "Close file list": "கோப்புப் பட்டியலை மூடவும்",

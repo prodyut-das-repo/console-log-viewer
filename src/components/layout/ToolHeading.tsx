@@ -2,6 +2,7 @@ import { useTranslation } from "../../i18n/LanguageProvider";
 import type { ToolTab } from "../../types";
 import Icon from "../common/Icon";
 import { tools } from "./tools";
+import { FILE_SIZE_LIMIT_HINT } from "../../utils/fileLimits";
 export default function ToolHeading({
   activeTool,
   onOpen,
@@ -26,7 +27,12 @@ export default function ToolHeading({
       </div>
       {((activeTool === "console" && hasLogFiles) ||
         (activeTool === "har" && hasHarFiles)) && (
-        <button className="upload" onClick={onOpen} type="button">
+        <button
+          className="upload"
+          onClick={onOpen}
+          type="button"
+          title={t(FILE_SIZE_LIMIT_HINT)}
+        >
           <Icon name="upload" />
           {t(activeTool === "har" ? "Open HAR file" : "Upload log file")}
         </button>

@@ -1,5 +1,8 @@
 import type { Messages } from "../types";
 const messages: Messages = {
+  "Maximum file size: 12 MB.": "ఫైల్ గరిష్ఠ పరిమాణం: 12 MB.",
+  "File exceeds the 12 MB limit. Choose a smaller file.":
+    "ఫైల్ 12 MB పరిమితిని మించింది. చిన్న ఫైల్‌ను ఎంచుకోండి.",
   Files: "ఫైళ్లు",
   "Open file list": "ఫైళ్ల జాబితా తెరవండి",
   "Close file list": "ఫైళ్ల జాబితా మూసివేయండి",

@@ -2,6 +2,7 @@ import type { HarEntry, HarDiff, HarDiffDetail, HarHeader } from "../types";
 import { formatSize, formatDuration } from "./format";
 import { formatJsonText } from "./json";
 import { isRecord, normalizeHarEntries } from "./harValidation";
+import { assertFileSize } from "./fileLimits";
 
 export function harRequestKey(entry: HarEntry): string {
   try {
@@ -178,6 +179,7 @@ export function prettifyHarBody(text: string, mimeType = ""): string {
 export async function readHarCapture(
   file: File,
 ): Promise<import("../types").HarCapture> {
+  assertFileSize(file);
   let parsed: unknown;
   try {
     parsed = JSON.parse(await file.text());
