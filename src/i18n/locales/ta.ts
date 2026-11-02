@@ -175,6 +175,8 @@ const messages: Messages = {
   "Log copied to clipboard": "பதிவு கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது",
   "Formatted JSON copied": "வடிவமைத்த JSON நகலெடுக்கப்பட்டது",
   "Result copied": "முடிவு நகலெடுக்கப்பட்டது",
+  "Copy response body": "பதில் உள்ளடக்கத்தை நகலெடுக்கவும்",
+  "Response body copied": "பதில் உள்ளடக்கம் நகலெடுக்கப்பட்டது",
   "Filter logs by severity": "தீவிரத்தின் அடிப்படையில் பதிவுகளை வடிகட்டவும்",
   "HAR view": "HAR பார்வை",
   "Request details": "கோரிக்கை விவரங்கள்",

@@ -167,6 +167,8 @@ const messages = {
   "Log copied to clipboard": "Log copied to clipboard",
   "Formatted JSON copied": "Formatted JSON copied",
   "Result copied": "Result copied",
+  "Copy response body": "Copy response body",
+  "Response body copied": "Response body copied",
   "Filter logs by severity": "Filter logs by severity",
   "HAR view": "HAR view",
   "Request details": "Request details",

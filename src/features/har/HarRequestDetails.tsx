@@ -6,6 +6,7 @@ import { formatDuration } from "../../utils/format";
 import { prettifyHarBody } from "../../utils/har";
 import HarHeaders from "./HarHeaders";
 import HarParams from "./HarParams";
+import HarResponseBody from "./HarResponseBody";
 import HarTiming from "./HarTiming";
 function HarRequestDetails({ entry: selectedHarEntry }: { entry: HarEntry }) {
   const { t } = useTranslation();
@@ -120,27 +121,7 @@ function HarRequestDetails({ entry: selectedHarEntry }: { entry: HarEntry }) {
               headers={selectedHarEntry.response.headers}
               emptyText={t("No headers in this capture.")}
             />
-            <h3>
-              {t("Response body")}{" "}
-              <span>
-                {selectedHarEntry.response.content?.mimeType ||
-                  t("Unknown type")}
-              </span>
-            </h3>
-            {selectedHarEntry.response.content?.text ? (
-              <pre className="har-body">
-                {selectedHarEntry.response.content.encoding === "base64"
-                  ? `[Base64 encoded content]\n${selectedHarEntry.response.content.text}`
-                  : prettifyHarBody(
-                      selectedHarEntry.response.content.text,
-                      selectedHarEntry.response.content.mimeType,
-                    )}
-              </pre>
-            ) : (
-              <p className="har-muted">
-                {t("No response body was included in this capture.")}
-              </p>
-            )}
+            <HarResponseBody content={selectedHarEntry.response.content} />
           </>
         )}
         {harDetailTab === "timing" && <HarTiming entry={selectedHarEntry} />}

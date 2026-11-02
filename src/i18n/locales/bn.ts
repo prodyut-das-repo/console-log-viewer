@@ -166,6 +166,8 @@ const messages: Messages = {
   "Log copied to clipboard": "লগ ক্লিপবোর্ডে কপি হয়েছে",
   "Formatted JSON copied": "ফরম্যাট করা JSON কপি হয়েছে",
   "Result copied": "ফলাফল কপি হয়েছে",
+  "Copy response body": "রেসপন্স বডি কপি করুন",
+  "Response body copied": "রেসপন্স বডি কপি হয়েছে",
   "Filter logs by severity": "গুরুত্ব অনুযায়ী লগ ফিল্টার করুন",
   "HAR view": "HAR ভিউ",
   "Request details": "অনুরোধের বিবরণ",

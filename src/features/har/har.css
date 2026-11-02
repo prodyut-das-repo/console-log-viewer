@@ -377,6 +377,27 @@
   color: #929aa7;
   font-size: 9px;
 }
+.har-body-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 10px;
+}
+.har-body-heading h3 {
+  min-width: 0;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.har-body-heading h3 span {
+  overflow-wrap: anywhere;
+}
+.har-body-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .har-body {
   max-height: 320px;
   overflow: auto;
@@ -988,6 +1009,9 @@
   .har-detail-content h3 span {
     font-size: 12px;
     overflow-wrap: anywhere;
+  }
+  .har-body-heading .har-body-copy {
+    min-height: 44px;
   }
   .har-kv {
     grid-template-columns: minmax(80px, 30%) minmax(0, 1fr);

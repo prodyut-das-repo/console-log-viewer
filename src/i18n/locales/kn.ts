@@ -172,6 +172,8 @@ const messages: Messages = {
   "Log copied to clipboard": "ಲಾಗ್ ಕ್ಲಿಪ್‌ಬೋರ್ಡ್‌ಗೆ ನಕಲಿಸಲಾಗಿದೆ",
   "Formatted JSON copied": "ವಿನ್ಯಾಸಗೊಳಿಸಿದ JSON ನಕಲಿಸಲಾಗಿದೆ",
   "Result copied": "ಫಲಿತಾಂಶ ನಕಲಿಸಲಾಗಿದೆ",
+  "Copy response body": "ಪ್ರತಿಕ್ರಿಯೆಯ ವಿಷಯವನ್ನು ನಕಲಿಸಿ",
+  "Response body copied": "ಪ್ರತಿಕ್ರಿಯೆಯ ವಿಷಯವನ್ನು ನಕಲಿಸಲಾಗಿದೆ",
   "Filter logs by severity": "ತೀವ್ರತೆಯ ಆಧಾರದಲ್ಲಿ ಲಾಗ್‌ಗಳನ್ನು ಫಿಲ್ಟರ್ ಮಾಡಿ",
   "HAR view": "HAR ನೋಟ",
   "Request details": "ವಿನಂತಿಯ ವಿವರಗಳು",

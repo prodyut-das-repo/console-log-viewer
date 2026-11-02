@@ -173,6 +173,8 @@ const messages: Messages = {
   "Log copied to clipboard": "లాగ్ క్లిప్‌బోర్డ్‌కు కాపీ అయింది",
   "Formatted JSON copied": "ఫార్మాట్ చేసిన JSON కాపీ అయింది",
   "Result copied": "ఫలితం కాపీ అయింది",
+  "Copy response body": "ప్రతిస్పందన బాడీని కాపీ చేయండి",
+  "Response body copied": "ప్రతిస్పందన బాడీ కాపీ అయింది",
   "Filter logs by severity": "తీవ్రతతో లాగ్‌లను ఫిల్టర్ చేయండి",
   "HAR view": "HAR వీక్షణ",
   "Request details": "అభ్యర్థన వివరాలు",

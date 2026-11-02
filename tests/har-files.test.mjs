@@ -14,6 +14,8 @@ const Sidebar = require("./components/layout/Sidebar.js").default;
 const ToolHeading = require("./components/layout/ToolHeading.js").default;
 const HarEmptyState = require("./features/har/HarEmptyState.js").default;
 const HarWorkspace = require("./features/har/HarWorkspace.js").default;
+const HarRequestDetails =
+  require("./features/har/HarRequestDetails.js").default;
 const { useHarFiles } = require("./hooks/useHarFiles.js");
 const { ClipboardProvider } = require("./providers/ClipboardProvider.js");
 const { PreferencesProvider } = require("./providers/PreferencesProvider.js");
@@ -242,4 +244,96 @@ test("HAR empty uploads, header uploads, and sidebar uploads share an independen
   assert.equal(heading().props.activeTool, "console");
   assert.equal(sidebar().props.activeHarId, null);
   assert.equal(sidebar().props.activeLogId, sidebar().props.logFiles[0].id);
+});
+
+test("HAR response copy follows the selected body, preserves content, and handles missing bodies and clipboard failures", async (context) => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "navigator",
+  );
+  const copied = [];
+  const clipboard = {
+    async writeText(text) {
+      copied.push(text);
+    },
+  };
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { clipboard },
+  });
+  let renderer;
+  context.after(async () => {
+    await act(async () => renderer?.unmount());
+    if (originalNavigator)
+      Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else delete globalThis.navigator;
+  });
+  const details = (content) =>
+    providers(
+      h(HarRequestDetails, {
+        entry: {
+          request: { method: "GET", url: "https://example.com/api" },
+          response: { status: 200, content },
+        },
+      }),
+    );
+  await act(async () => {
+    renderer = create(details(undefined));
+  });
+  await act(async () =>
+    renderer.root
+      .findAllByType("button")
+      .find((button) => button.children.join("") === "Response")
+      .props.onClick(),
+  );
+  const copyButton = () =>
+    renderer.root.findByProps({ "aria-label": "Copy response body" });
+  for (const content of [
+    {
+      text: '{"id":9007199254740993,"value":"বাংলা"}',
+      mimeType: "application/json",
+    },
+    { text: "first line\r\nsecond line\n", mimeType: "text/plain" },
+    { text: "{invalid json", mimeType: "application/json" },
+    {
+      text: "SGVsbG8=",
+      mimeType: "application/octet-stream",
+      encoding: "base64",
+    },
+  ]) {
+    await act(async () => renderer.update(details(content)));
+    assert.equal(copyButton().props.disabled, false);
+    const displayed = renderer.root.findByType("pre").children.join("");
+    await act(async () => copyButton().props.onClick());
+    assert.equal(
+      copied.at(-1),
+      content.encoding === "base64" ? content.text : displayed,
+    );
+    if (content.mimeType === "text/plain")
+      assert.equal(copied.at(-1), content.text);
+    if (content.text.includes("9007199254740993"))
+      assert.match(copied.at(-1), /9007199254740993/);
+    assert.equal(
+      renderer.root.findByProps({ role: "status" }).children.join(""),
+      "Response body copied",
+    );
+  }
+  for (const content of [undefined, {}, { text: "", mimeType: "text/plain" }]) {
+    await act(async () => renderer.update(details(content)));
+    assert.equal(copyButton().props.disabled, true);
+    assert.equal(renderer.root.findAllByType("pre").length, 0);
+  }
+  clipboard.writeText = async () => {
+    throw new Error("Clipboard access denied");
+  };
+  await act(async () =>
+    renderer.update(
+      details({ text: "a new response", mimeType: "text/plain" }),
+    ),
+  );
+  await act(async () => copyButton().props.onClick());
+  assert.equal(
+    renderer.root.findByProps({ role: "status" }).children.join(""),
+    "Clipboard unavailable in this browser",
+  );
 });
