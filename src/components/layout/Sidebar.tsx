@@ -44,7 +44,7 @@ export default function Sidebar({
             <Icon name="close" size={20} />
           </button>
         )}
-        <div className="brand">
+        <a className="brand" href="/">
           <img
             className="brand-logo"
             src="/assets/logscope-logo.png"
@@ -52,7 +52,7 @@ export default function Sidebar({
             width={2149}
             height={731}
           />
-        </div>
+        </a>
       </div>
 
       <div className="sidebar-files">
